@@ -49,22 +49,57 @@
       background-attachment:fixed;
     }
 
-    /* ── Soft pastel orbs behind everything ── */
-    body::before{
-      content:'';
-      position:fixed;inset:0;
-      background:
-        radial-gradient(ellipse 60% 55% at 10% 15%, rgba(147,197,253,0.45) 0%,transparent 60%),
-        radial-gradient(ellipse 50% 45% at 85% 80%, rgba(196,181,253,0.40) 0%,transparent 60%),
-        radial-gradient(ellipse 40% 40% at 55% 45%, rgba(167,243,208,0.25) 0%,transparent 65%),
-        radial-gradient(ellipse 35% 30% at 30% 85%, rgba(253,186,116,0.18) 0%,transparent 60%);
-      pointer-events:none;z-index:0;
-      animation:orbs 14s ease-in-out infinite alternate;
+    /* ── Animated background orbs ── */
+    .orb{
+      position:fixed;border-radius:50%;
+      filter:blur(80px);pointer-events:none;z-index:0;
+      will-change:transform;
     }
-    @keyframes orbs{
-      0%{transform:scale(1) rotate(0deg);}
-      50%{transform:scale(1.04) rotate(0.8deg);}
-      100%{transform:scale(1) rotate(0deg);}
+    .orb1{
+      width:600px;height:600px;
+      background:rgba(147,197,253,0.45);
+      top:-100px;left:-100px;
+      animation:orbMove1 18s ease-in-out infinite alternate;
+    }
+    .orb2{
+      width:500px;height:500px;
+      background:rgba(196,181,253,0.38);
+      bottom:-80px;right:-80px;
+      animation:orbMove2 22s ease-in-out infinite alternate;
+    }
+    .orb3{
+      width:420px;height:420px;
+      background:rgba(167,243,208,0.30);
+      top:40%;left:50%;transform:translate(-50%,-50%);
+      animation:orbMove3 16s ease-in-out infinite alternate;
+    }
+    .orb4{
+      width:350px;height:350px;
+      background:rgba(253,186,116,0.22);
+      bottom:10%;left:20%;
+      animation:orbMove4 20s ease-in-out infinite alternate;
+    }
+    @keyframes orbMove1{
+      0%  {transform:translate(0,0) scale(1);}
+      33% {transform:translate(120px,80px) scale(1.1);}
+      66% {transform:translate(60px,160px) scale(0.95);}
+      100%{transform:translate(180px,40px) scale(1.05);}
+    }
+    @keyframes orbMove2{
+      0%  {transform:translate(0,0) scale(1);}
+      33% {transform:translate(-100px,-60px) scale(1.08);}
+      66% {transform:translate(-160px,-120px) scale(0.92);}
+      100%{transform:translate(-80px,-180px) scale(1.12);}
+    }
+    @keyframes orbMove3{
+      0%  {transform:translate(-50%,-50%) scale(1);}
+      50% {transform:translate(-30%,-60%) scale(1.15);}
+      100%{transform:translate(-60%,-40%) scale(0.9);}
+    }
+    @keyframes orbMove4{
+      0%  {transform:translate(0,0) scale(1);}
+      50% {transform:translate(80px,-60px) scale(1.1);}
+      100%{transform:translate(-40px,40px) scale(0.9);}
     }
 
     /* ── Scrollbar ── */
@@ -326,7 +361,19 @@
       align-items:start;
     }
     @media(max-width:760px){.shifts-wrapper{grid-template-columns:1fr;}}
-    .shift-section{margin-bottom:0;animation:fadeInUp 0.6s ease both;}
+    .shift-section{
+      margin-bottom:0;animation:fadeInUp 0.6s ease both;
+      border-radius:var(--radius);
+      padding:20px;
+    }
+    .shift-section.morning-section{
+      background:rgba(255,247,237,0.50);
+      border:1px solid rgba(253,186,116,0.30);
+    }
+    .shift-section.night-section{
+      background:rgba(238,242,255,0.50);
+      border:1px solid rgba(165,180,252,0.30);
+    }
     .shift-header{
       display:flex;align-items:center;gap:10px;
       padding:0 0 12px 4px;
@@ -361,6 +408,12 @@
       display:grid;
       grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
       gap:14px;
+    }
+    .night-section .staff-grid{
+      grid-template-columns:repeat(3,1fr);
+    }
+    @media(max-width:760px){
+      .night-section .staff-grid{grid-template-columns:1fr;}
     }
 
     /* ── Staff Card ── */
@@ -669,6 +722,11 @@
   </div>
 </header>
 
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+<div class="orb orb4"></div>
+
 <div id="ssBox" class="ss-panel left">⏰ ถึงเวลา ทำ 5ส.</div>
 <div id="ssBox2" class="ss-panel right">⏰ ถึงเวลา ทำ 5ส.</div>
 
@@ -957,7 +1015,7 @@ function renderAll() {
   for(const [key, shift] of Object.entries(SHIFTS)) {
     const group = filtered.filter(s => getShift(s.name)===key);
     const section = document.createElement('div');
-    section.className = 'shift-section';
+    section.className = 'shift-section ' + (key==='morning' ? 'morning-section' : 'night-section');
     section.innerHTML = `
       <div class="shift-header ${shift.cls}">
         <div class="shift-header-icon">${shift.icon}</div>
@@ -1150,6 +1208,30 @@ connectLive();
 updateClock();
 setInterval(updateClock,1000);
 renderAll();
+
+// ── Keep screen awake (Sony TV / kiosk display) ──
+async function keepAwake() {
+  // Try Wake Lock API (Chrome 84+)
+  if ('wakeLock' in navigator) {
+    try {
+      let lock = await navigator.wakeLock.request('screen');
+      // Re-acquire if released (tab visibility change)
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+          try { lock = await navigator.wakeLock.request('screen'); } catch(e){}
+        }
+      });
+      return;
+    } catch(e) {}
+  }
+  // Fallback: simulate tiny interaction every 20 minutes
+  setInterval(() => {
+    // Scroll 1px down then back — imperceptible but keeps display active
+    window.scrollBy(0, 1);
+    setTimeout(() => window.scrollBy(0, -1), 500);
+  }, 20 * 60 * 1000);
+}
+keepAwake();
 
 // ===== 5ส Area Map =====
 function openArea5sModal() {
