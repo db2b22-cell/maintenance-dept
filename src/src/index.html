@@ -437,20 +437,25 @@
     }
     .staff-card:active{transform:translateY(-1px);}
     .staff-card.card-absent{
-      border-color:var(--red-border);
-      background:rgba(255,245,245,0.65);
-      border-left:3px solid rgba(220,38,38,0.45);
+      border-color:rgba(202,138,4,0.35);
+      background:rgba(254,252,232,0.65);
+      border-left:3px solid rgba(202,138,4,0.55);
     }
     .staff-card.card-absent:hover{
-      box-shadow:0 16px 40px rgba(220,38,38,0.14),inset 0 1px 0 rgba(255,255,255,0.85);
+      box-shadow:0 16px 40px rgba(202,138,4,0.15),inset 0 1px 0 rgba(255,255,255,0.85);
     }
     .staff-card.card-leave{
-      border-color:var(--amber-border);
-      background:rgba(255,251,235,0.65);
-      border-left:3px solid rgba(245,158,11,0.45);
+      border-color:rgba(202,138,4,0.40);
+      background:rgba(254,252,232,0.70);
+      border-left:3px solid rgba(234,179,8,0.65);
     }
     .staff-card.card-leave:hover{
-      box-shadow:0 16px 40px rgba(217,119,6,0.14),inset 0 1px 0 rgba(255,255,255,0.85);
+      box-shadow:0 16px 40px rgba(202,138,4,0.18),inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+    .staff-card.card-leave-advance{
+      border-color:rgba(234,179,8,0.20);
+      background:rgba(255,253,245,0.65);
+      border-left:3px solid rgba(234,179,8,0.30);
     }
 
     /* ── Avatar ── */
@@ -501,25 +506,35 @@
       animation:pulse-green 2s ease-in-out infinite;
     }
     .status-absent{
-      background:rgba(254,226,226,0.70);
-      color:#991b1b;border:1px solid rgba(220,38,38,0.28);
+      background:rgba(234,179,8,0.18);
+      color:#713f12;border:1px solid rgba(202,138,4,0.40);
     }
     .status-absent::before{
-      background:#ef4444;
-      animation:pulse-red 2s ease-in-out infinite;
+      background:#ca8a04;
+      animation:pulse-amber 2s ease-in-out infinite;
     }
     .status-leave{
-      background:rgba(254,243,199,0.70);
-      color:#78350f;border:1px solid rgba(245,158,11,0.28);
+      background:rgba(234,179,8,0.22);
+      color:#713f12;border:1px solid rgba(202,138,4,0.50);
     }
-    .status-leave::before{background:#f59e0b;}
+    .status-leave::before{
+      background:#eab308;
+      animation:pulse-amber 2s ease-in-out infinite;
+    }
+    /* Advance leave badge — soft yellow, shown alongside present */
+    .status-leave-advance{
+      background:rgba(254,249,195,0.80);
+      color:#854d0e;border:1px solid rgba(234,179,8,0.30);
+      font-size:0.68rem;
+    }
+    .status-leave-advance::before{background:#fde047;}
     @keyframes pulse-green{
       0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5);}
       50%{box-shadow:0 0 0 4px rgba(16,185,129,0);}
     }
-    @keyframes pulse-red{
-      0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0.4);}
-      50%{box-shadow:0 0 0 4px rgba(220,38,38,0);}
+    @keyframes pulse-amber{
+      0%,100%{box-shadow:0 0 0 0 rgba(202,138,4,0.5);}
+      50%{box-shadow:0 0 0 4px rgba(202,138,4,0);}
     }
 
     /* ── Animations ── */
@@ -789,9 +804,16 @@
       </select>
     </div>
     <div class="form-group"><label>สถานะวันนี้</label>
-      <select id="inputStatus">
-        <option value="present">มาทำงาน</option><option value="absent">ขาดงาน</option><option value="leave">ลา</option>
+      <select id="inputStatus" onchange="toggleLeaveDatePicker()">
+        <option value="present">มาทำงาน</option>
+        <option value="absent">ขาดงาน</option>
+        <option value="leave">ลา (วันนี้)</option>
+        <option value="leave_advance">ลาล่วงหน้า</option>
       </select>
+    </div>
+    <div class="form-group" id="leaveDateGroup" style="display:none;">
+      <label>📅 วันที่จะลา</label>
+      <input type="date" id="inputLeaveDate"/>
     </div>
     <div class="modal-actions">
       <button class="btn" style="background:rgba(241,245,249,0.8);border:1px solid var(--border2);color:var(--text2);" onclick="closeStaffModal()">ยกเลิก</button>
@@ -883,6 +905,33 @@ const SHIFTS = {
   night:   { label:'กะดึก', time:'22:30 - 07:30', cls:'night',   icon:'🌙' },
 };
 const STATUS_LABELS = { present:'มาทำงาน', absent:'ขาดงาน', leave:'ลา' };
+
+// Parse status string — handles leave_advance:YYYY-MM-DD
+function parseStatus(rawStatus) {
+  if (rawStatus && rawStatus.startsWith('leave_advance:')) {
+    const date = rawStatus.slice(14); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
+    if (date <= today) return { effective:'leave', advanceDate:null };
+    return { effective:'present', advanceDate:date };
+  }
+  return { effective: rawStatus || 'present', advanceDate:null };
+}
+
+function formatThaiDate(isoDate) {
+  const [y,m,d] = isoDate.split('-');
+  const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return d + ' ' + months[+m] + ' ' + (+y+543);
+}
+
+function toggleLeaveDatePicker() {
+  const v = document.getElementById('inputStatus').value;
+  document.getElementById('leaveDateGroup').style.display = v==='leave_advance' ? '' : 'none';
+  if (v==='leave_advance' && !document.getElementById('inputLeaveDate').value) {
+    // Default to tomorrow
+    const tom = new Date(); tom.setDate(tom.getDate()+1);
+    document.getElementById('inputLeaveDate').value = tom.toISOString().slice(0,10);
+  }
+}
 const ORG_LEVELS = [
   { key:'mgr',     label:'Manager',    cls:'level-mgr' },
   { key:'chief',   label:'Chief',      cls:'level-chief' },
@@ -1002,9 +1051,10 @@ function renderAll() {
   });
 
   document.getElementById('countTotal').textContent   = staff.length;
-  document.getElementById('countPresent').textContent = staff.filter(s=>s.status==='present').length;
-  document.getElementById('countAbsent').textContent  = staff.filter(s=>s.status==='absent').length;
-  document.getElementById('countLeave').textContent   = staff.filter(s=>s.status==='leave').length;
+  const parsed = staff.map(s=>parseStatus(s.status));
+  document.getElementById('countPresent').textContent = parsed.filter(p=>p.effective==='present').length;
+  document.getElementById('countAbsent').textContent  = parsed.filter(p=>p.effective==='absent').length;
+  document.getElementById('countLeave').textContent   = parsed.filter(p=>p.effective==='leave').length;
 
   const container = document.getElementById('shiftContainer');
   container.innerHTML = '<div class="shifts-wrapper" id="shiftsWrapper"></div>';
@@ -1032,14 +1082,23 @@ function renderAll() {
     } else {
       group.forEach(s => {
         const card = document.createElement('div');
-        card.className = 'staff-card' + (s.status==='absent' ? ' card-absent' : s.status==='leave' ? ' card-leave' : '');
+        const ps = parseStatus(s.status);
+        let cardCls = 'staff-card';
+        if (ps.effective==='absent') cardCls += ' card-absent';
+        else if (ps.effective==='leave') cardCls += ' card-leave';
+        else if (ps.advanceDate) cardCls += ' card-leave-advance';
+        card.className = cardCls;
         card.onclick = () => openEditModal(s.id);
+        const advanceBadge = ps.advanceDate
+          ? `<span class="status-badge status-leave-advance">📅 ลาล่วงหน้า ${formatThaiDate(ps.advanceDate)}</span>`
+          : '';
         card.innerHTML = `
           ${avatarEl(s.name)}
           <div class="staff-info">
             <div class="name">${s.name}</div>
             <div class="role">${s.role}</div>
-            <span class="status-badge status-${s.status}">${STATUS_LABELS[s.status]}</span>
+            <span class="status-badge status-${ps.effective}">${STATUS_LABELS[ps.effective]}</span>
+            ${advanceBadge}
           </div>
         `;
         grid.appendChild(card);
@@ -1055,6 +1114,7 @@ function openAddModal() {
   document.getElementById('inputRole').value='';
   document.getElementById('inputLevel').value='staff';
   document.getElementById('inputStatus').value='present';
+  document.getElementById('leaveDateGroup').style.display='none';
   document.getElementById('btnDelete').style.display='none';
   document.getElementById('staffModal').classList.add('open');
 }
@@ -1065,7 +1125,15 @@ function openEditModal(id) {
   document.getElementById('inputName').value=s.name;
   document.getElementById('inputRole').value=s.role;
   document.getElementById('inputLevel').value=s.level||'staff';
-  document.getElementById('inputStatus').value=s.status;
+  // Handle leave_advance:DATE format
+  if (s.status && s.status.startsWith('leave_advance:')) {
+    document.getElementById('inputStatus').value='leave_advance';
+    document.getElementById('inputLeaveDate').value=s.status.slice(14);
+    document.getElementById('leaveDateGroup').style.display='';
+  } else {
+    document.getElementById('inputStatus').value=s.status;
+    document.getElementById('leaveDateGroup').style.display='none';
+  }
   document.getElementById('btnDelete').style.display='inline-block';
   document.getElementById('staffModal').classList.add('open');
 }
@@ -1074,7 +1142,12 @@ function saveStaff() {
   const name=document.getElementById('inputName').value.trim();
   const role=document.getElementById('inputRole').value.trim();
   const level=document.getElementById('inputLevel').value;
-  const status=document.getElementById('inputStatus').value;
+  let status=document.getElementById('inputStatus').value;
+  if (status==='leave_advance') {
+    const d=document.getElementById('inputLeaveDate').value;
+    if(!d){alert('กรุณาเลือกวันที่ลา');return;}
+    status='leave_advance:'+d;
+  }
   if(!name){alert('กรุณากรอกชื่อพนักงาน');return;}
   if(editingId){
     const idx=staff.findIndex(s=>s.id===editingId);
