@@ -198,10 +198,7 @@ export default async function handler(req, res) {
       const member = findMemberByName(inputName);
       if (member) {
         await saveUserToSheets(userId, inputName, member.id);
-        await replyMessage(replyToken, `✅ ลงทะเบียนแล้ว: ${inputName} (id=${member.id})\nครั้งต่อไปพิม "ลา" ได้เลยโดยไม่ต้องระบุชื่อ`);
         console.log(`[REGISTER] ${inputName} → id=${member.id}`);
-      } else {
-        await replyMessage(replyToken, `❌ ไม่พบชื่อ "${inputName}" ในระบบ\nลองใช้ชื่อเล่นหรือชื่อจริงครับ`);
       }
       continue;
     }
@@ -231,11 +228,6 @@ export default async function handler(req, res) {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
         await updateSheet(finalId, result.status);
-        const memberName = MEMBERS.find(m => m.id === finalId)?.names[0] || finalId;
-        const statusLabel = result.status === 'leave' ? 'ลา' : result.status === 'absent' ? 'ป่วย/ขาดงาน' : 'มาทำงาน';
-        await replyMessage(replyToken, `✅ บันทึกแล้ว: ${memberName} ${statusLabel}`);
-      } else {
-        await replyMessage(replyToken, `❓ ไม่ทราบว่าใครลา\nพิม "ฉัน [ชื่อ]" เพื่อลงทะเบียนก่อนครับ\nเช่น "ฉัน อุดมชัย"`);
       }
     }
   }
