@@ -811,9 +811,16 @@
         <option value="leave_advance">ลาล่วงหน้า</option>
       </select>
     </div>
-    <div class="form-group" id="leaveDateGroup" style="display:none;">
-      <label>📅 วันที่จะลา</label>
-      <input type="date" id="inputLeaveDate"/>
+    <div id="leaveDateGroup" style="display:none;">
+      <div class="form-group">
+        <label>📅 วันที่เริ่มลา</label>
+        <input type="date" id="inputLeaveStart" onchange="updateLeaveDayCount()"/>
+      </div>
+      <div class="form-group">
+        <label>📅 วันที่สิ้นสุด <span style="font-size:0.72rem;color:var(--text3);">(เว้นว่างถ้าลาวันเดียว)</span></label>
+        <input type="date" id="inputLeaveEnd" onchange="updateLeaveDayCount()"/>
+      </div>
+      <div id="leaveDayCount" style="font-size:0.78rem;color:var(--accent);font-weight:600;margin-bottom:12px;padding-left:2px;"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" style="background:rgba(241,245,249,0.8);border:1px solid var(--border2);color:var(--text2);" onclick="closeStaffModal()">ยกเลิก</button>
@@ -906,30 +913,67 @@ const SHIFTS = {
 };
 const STATUS_LABELS = { present:'มาทำงาน', absent:'ขาดงาน', leave:'ลา' };
 
-// Parse status string — handles leave_advance:YYYY-MM-DD
+// Parse status — handles leave_advance:START or leave_advance:START:END
 function parseStatus(rawStatus) {
   if (rawStatus && rawStatus.startsWith('leave_advance:')) {
-    const date = rawStatus.slice(14); // YYYY-MM-DD
+    const rest = rawStatus.slice(14);
+    const parts = rest.split(':');
+    const startDate = parts[0];
+    const endDate   = parts[1] || parts[0];
     const today = new Date().toISOString().slice(0, 10);
-    if (date <= today) return { effective:'leave', advanceDate:null };
-    return { effective:'present', advanceDate:date };
+    if (today >= startDate && today <= endDate) {
+      // Active leave period
+      return { effective:'leave', advanceDate:null, advanceStart:null, advanceEnd:null };
+    }
+    if (today < startDate) {
+      // Future leave
+      return { effective:'present', advanceDate:startDate, advanceEnd:endDate };
+    }
+    // Past — treat as present (cron should have cleaned up)
+    return { effective:'present', advanceDate:null, advanceEnd:null };
   }
-  return { effective: rawStatus || 'present', advanceDate:null };
+  return { effective: rawStatus || 'present', advanceDate:null, advanceEnd:null };
 }
 
 function formatThaiDate(isoDate) {
   const [y,m,d] = isoDate.split('-');
   const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  return d + ' ' + months[+m] + ' ' + (+y+543);
+  return d + ' ' + months[+m] + ' ' + (+y+543);
+}
+
+function formatThaiDateRange(startIso, endIso) {
+  if (!endIso || endIso === startIso) return formatThaiDate(startIso);
+  const [sy,sm,sd] = startIso.split('-');
+  const [ey,em,ed] = endIso.split('-');
+  const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const days = Math.round((new Date(endIso)-new Date(startIso))/(86400000))+1;
+  if (sm===em && sy===ey) {
+    return sd+'-'+ed+' '+months[+em]+' '+(+ey+543)+' ('+days+' วัน)';
+  }
+  return sd+' '+months[+sm]+'-'+ed+' '+months[+em]+' '+(+ey+543)+' ('+days+' วัน)';
+}
+
+function updateLeaveDayCount() {
+  const s = document.getElementById('inputLeaveStart').value;
+  const e = document.getElementById('inputLeaveEnd').value || s;
+  const el = document.getElementById('leaveDayCount');
+  if (!s) { el.textContent=''; return; }
+  const days = Math.round((new Date(e)-new Date(s))/(86400000))+1;
+  if (days < 1) { el.textContent='⚠️ วันสิ้นสุดต้องไม่ก่อนวันเริ่ม'; el.style.color='var(--red)'; return; }
+  el.style.color='var(--accent)';
+  el.textContent = days===1 ? '📅 ลา 1 วัน' : '📅 ลา '+days+' วัน ('+formatThaiDate(s)+' – '+formatThaiDate(e)+')';
 }
 
 function toggleLeaveDatePicker() {
   const v = document.getElementById('inputStatus').value;
   document.getElementById('leaveDateGroup').style.display = v==='leave_advance' ? '' : 'none';
-  if (v==='leave_advance' && !document.getElementById('inputLeaveDate').value) {
-    // Default to tomorrow
+  if (v==='leave_advance') {
     const tom = new Date(); tom.setDate(tom.getDate()+1);
-    document.getElementById('inputLeaveDate').value = tom.toISOString().slice(0,10);
+    const tomStr = tom.toISOString().slice(0,10);
+    if (!document.getElementById('inputLeaveStart').value) {
+      document.getElementById('inputLeaveStart').value = tomStr;
+    }
+    updateLeaveDayCount();
   }
 }
 const ORG_LEVELS = [
@@ -1090,7 +1134,7 @@ function renderAll() {
         card.className = cardCls;
         card.onclick = () => openEditModal(s.id);
         const advanceBadge = ps.advanceDate
-          ? `<span class="status-badge status-leave-advance">📅 ลาล่วงหน้า ${formatThaiDate(ps.advanceDate)}</span>`
+          ? `<span class="status-badge status-leave-advance">📅 ลาล่วงหน้า ${formatThaiDateRange(ps.advanceDate, ps.advanceEnd)}</span>`
           : '';
         card.innerHTML = `
           ${avatarEl(s.name)}
@@ -1114,6 +1158,8 @@ function openAddModal() {
   document.getElementById('inputRole').value='';
   document.getElementById('inputLevel').value='staff';
   document.getElementById('inputStatus').value='present';
+  document.getElementById('inputLeaveStart').value='';
+  document.getElementById('inputLeaveEnd').value='';
   document.getElementById('leaveDateGroup').style.display='none';
   document.getElementById('btnDelete').style.display='none';
   document.getElementById('staffModal').classList.add('open');
@@ -1125,11 +1171,14 @@ function openEditModal(id) {
   document.getElementById('inputName').value=s.name;
   document.getElementById('inputRole').value=s.role;
   document.getElementById('inputLevel').value=s.level||'staff';
-  // Handle leave_advance:DATE format
+  // Handle leave_advance:START or leave_advance:START:END
   if (s.status && s.status.startsWith('leave_advance:')) {
+    const parts = s.status.slice(14).split(':');
     document.getElementById('inputStatus').value='leave_advance';
-    document.getElementById('inputLeaveDate').value=s.status.slice(14);
+    document.getElementById('inputLeaveStart').value=parts[0];
+    document.getElementById('inputLeaveEnd').value=parts[1]||'';
     document.getElementById('leaveDateGroup').style.display='';
+    updateLeaveDayCount();
   } else {
     document.getElementById('inputStatus').value=s.status;
     document.getElementById('leaveDateGroup').style.display='none';
@@ -1144,9 +1193,12 @@ function saveStaff() {
   const level=document.getElementById('inputLevel').value;
   let status=document.getElementById('inputStatus').value;
   if (status==='leave_advance') {
-    const d=document.getElementById('inputLeaveDate').value;
-    if(!d){alert('กรุณาเลือกวันที่ลา');return;}
-    status='leave_advance:'+d;
+    const s=document.getElementById('inputLeaveStart').value;
+    if(!s){alert('กรุณาเลือกวันที่เริ่มลา');return;}
+    const e=document.getElementById('inputLeaveEnd').value;
+    if(e && e<s){alert('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม');return;}
+    const days=e?Math.round((new Date(e)-new Date(s))/(86400000))+1:1;
+    status='leave_advance:'+s+(e&&e!==s?':'+e:'');
   }
   if(!name){alert('กรุณากรอกชื่อพนักงาน');return;}
   if(editingId){
