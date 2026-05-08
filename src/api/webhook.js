@@ -1,1 +1,239 @@
-{"data":"aW1wb3J0IGNyeXB0byBmcm9tICdjcnlwdG8nOwoKY29uc3QgQ0hBTk5FTF9TRUNSRVQgPSAnNjRmYjAxODdhZDgzNzA4YTM4MDE1ZDY3M2FiMzIxZDEnOwpjb25zdCBDSEFOTkVMX0FDQ0VTU19UT0tFTiA9ICc5VUJ6aGdLK2VsaS91dE1IaTFLaWNvRjlPa3IwSXp4REdKdXltZTlxUEhRclA3TW5vaXZTR1poVHpOSy83alpIR2tTVjNJZllDWG50WU1aaVE2dDBqNytKS3BGNUxxMm1HWE5zem5jR3p3OE0vdUduM0hSQ2VBeDJYMXBRSHIwY1dqUmJJa1BJUDFCVlZwOEVRTmd4WEFkQjA0dDg5LzFPL3cxY0RueWlsRlU9JzsKY29uc3QgU0NSSVBUX1VSTCA9ICdodHRwczovL3NjcmlwdC5nb29nbGUuY29tL21hY3Jvcy9zL0FLZnljYnd0c2xrcFVoMm9VdGNnd0U4VG9BX3RDdWVZX0ZIUlhGZXBFeXhJbHNXYXA4WDRZQUJndkpQYWI5ZEpYN0M4VG9aNy9leGVjJzsKY29uc3QgR0VNSU5JX0FQSV9LRVkgPSAnQUl6YVN5QUVBOGg1X1NBMTBBbTZYVjA4d1dCeUtkamtIN05Bc3NZJzsKY29uc3QgR0VNSU5JX1VSTCA9IGBodHRwczovL2dlbmVyYXRpdmVsYW5ndWFnZS5nb29nbGVhcGlzLmNvbS92MWJldGEvbW9kZWxzL2dlbWluaS0yLjAtZmxhc2gtbGl0ZTpnZW5lcmF0ZUNvbnRlbnQ/a2V5PSR7R0VNSU5JX0FQSV9LRVl9YDsKCmNvbnN0IE1FTUJFUlMgPSBbCiAgeyBpZDogMTEsIG5hbWVzOiBbJ+C4m+C4o+C4suC5guC4oeC4l+C4ouC5jCcsICfguYTguJ7guKPguKfguKPguKPguJPguYwnLCAnUHJhbW90J10gfSwKICB7IGlkOiAxMiwgbmFtZXM6IFsn4Liq4LiB4LilJywgJ+C4geC4tOC4iOC5gOC4iOC4o+C4tOC4jScsICdub3V2byddIH0sCiAgeyBpZDogMTMsIG5hbWVzOiBbJ+C4muC4seC4k+C4keC4tOC4lScsICfguJnguLTguKXguK3guYjguK3guJknLCAncGx1ZyddIH0sCiAgeyBpZDogNywgIG5hbWVzOiBbJ+C4p+C4tOC4l+C4ouC4sicsICfguYHguJ7guIfguKjguKPguLUnLCAn4Lir4Lih4Li1J10gfSwKICB7IGlkOiA0LCAgbmFtZXM6IFsn4Lio4Li04Lij4Li04LiK4Lix4LiiJywgJ+C5geC4quC4h+C4p+C4h+C4qOC5jCcsICdhZWsnLCAn4LmA4Lit4LiBJ10gfSwKICB7IGlkOiA2LCAgbmFtZXM6IFsn4Lit4Li44LiU4Lih4LiK4Lix4LiiJywgJ+C4l+C4qOC4o+C4seC4geC4qeC4sicsICdMeSddIH0sCiAgeyBpZDogOSwgIG5hbWVzOiBbJ+C4quC4meC4mOC4ouC4sicsICfguYLguIjguYknLCAn4LmC4LiI4LmJ4LiK4Liy4Lin4LiU4Li1J10gfSwKICB7IGlkOiAxLCAgbmFtZXM6IFsn4Lig4Lix4LiX4LiX4Li04Lii4LiyJywgJ+C5geC4nuC4l+C5jOC4nuC4tOC4nuC4seC4kuC4meC5jCcsICdOb29tb3Rhc2EnXSB9LAogIHsgaWQ6IDIsICBuYW1lczogWyfguKfguLHguJnguIrguJnguLAnLCAn4Lif4Lit4Lij4LmM4LiUJ10gfSwKICB7IGlkOiAzLCAgbmFtZXM6IFsn4Lin4Lix4LiK4Lij4Li04LiZ4LiX4Lij4LmMJywgJ+C4p+C4h+C4qeC5jOC4leC4uOC4o+C4seC4k+C4leC5jCcsICdCZWVya3VqaWtpJ10gfSwKICB7IGlkOiA1LCAgbmFtZXM6IFsn4Liq4Lih4LiK4Liy4LiiJywgJ+C4peC4tOC4guC4tOC4lScsICfguKXguLTguILguLTguJXguK3guJPguLTguYDguJnguKLguKzguYwnXSB9LAogIHsgaWQ6IDgsICBuYW1lczogWyfguJ7guLTguJ7guLHguJLguJnguYzguJ7guKUnLCAn4LmA4Lia4LilJywgJ+C5gOC4muC4peC4lOC4seC4muC4m+C4peC4uSddIH0sCiAgeyBpZDogMTAsIG5hbWVzOiBbJ+C4quC4uOC4l+C4tOC4mScsICfguKPguK3guJTguKLguLTguYnguKEnXSB9LAogIHsgaWQ6IDE0LCBuYW1lczogWyfguJPguLHguJDguJ7guIfguKnguYwnLCAn4Lii4Liw4Lil4LmJ4Lit4LihJywgJ+C5hOC4oeC4hOC5jCcsICduYXR0YXBvbmcnXSB9LApdOwoKY29uc3QgVFJJR0dFUl9XT1JEUyA9IFsn4Lil4LiyJywgJ+C4m+C5iOC4p+C4oicsICfguYTguKHguYjguKrguJrguLLguKInLCAn4LmE4Lih4LmI4Lih4LiyJywgJ+C4q+C4ouC4uOC4lCcsICfguJXguLTguJTguJjguLjguKPguLAnLCAn4Lih4Liy4LmB4Lil4LmJ4LinJywgJ+C4oeC4suC5hOC4lOC5iScsICfguKLguIHguYDguKXguLTguIHguKXguLInXTsKCmZ1bmN0aW9uIHZlcmlmeVNpZ25hdHVyZShyYXdCb2R5LCBzaWduYXR1cmUpIHsKICBjb25zdCBoYXNoID0gY3J5cHRvLmNyZWF0ZUhtYWMoJ1NIQTI1NicsIENIQU5ORUxfU0VDUkVUKS51cGRhdGUocmF3Qm9keSkuZGlnZXN0KCdiYXNlNjQnKTsKICByZXR1cm4gaGFzaCA9PT0gc2lnbmF0dXJlOwp9CgpmdW5jdGlvbiBmaW5kTWVtYmVyQnlOYW1lKG5hbWUpIHsKICBpZiAoIW5hbWUpIHJldHVybiBudWxsOwogIGZvciAoY29uc3QgbSBvZiBNRU1CRVJTKSB7CiAgICBpZiAobS5uYW1lcy5zb21lKG4gPT4gbmFtZS5pbmNsdWRlcyhuKSB8fCBuLmluY2x1ZGVzKG5hbWUpKSkgcmV0dXJuIG07CiAgfQogIHJldHVybiBudWxsOwp9CgovLyDguJTguLbguIfguIrguLfguYjguK3guIjguLLguIEgTElORSBBUEkKYXN5bmMgZnVuY3Rpb24gZ2V0TGluZURpc3BsYXlOYW1lKHVzZXJJZCwgc291cmNlKSB7CiAgdHJ5IHsKICAgIGxldCB1cmw7CiAgICBpZiAoc291cmNlLnR5cGUgPT09ICdncm91cCcpIHsKICAgICAgdXJsID0gYGh0dHBzOi8vYXBpLmxpbmUubWUvdjIvYm90L2dyb3VwLyR7c291cmNlLmdyb3VwSWR9L21lbWJlci8ke3VzZXJJZH1gOwogICAgfSBlbHNlIGlmIChzb3VyY2UudHlwZSA9PT0gJ3Jvb20nKSB7CiAgICAgIHVybCA9IGBodHRwczovL2FwaS5saW5lLm1lL3YyL2JvdC9yb29tLyR7c291cmNlLnJvb21JZH0vbWVtYmVyLyR7dXNlcklkfWA7CiAgICB9IGVsc2UgewogICAgICB1cmwgPSBgaHR0cHM6Ly9hcGkubGluZS5tZS92Mi9ib3QvcHJvZmlsZS8ke3VzZXJJZH1gOwogICAgfQogICAgY29uc3QgcmVzID0gYXdhaXQgZmV0Y2godXJsLCB7IGhlYWRlcnM6IHsgJ0F1dGhvcml6YXRpb24nOiBgQmVhcmVyICR7Q0hBTk5FTF9BQ0NFU1NfVE9LRU59YCB9IH0pOwogICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcy5qc29uKCk7CiAgICByZXR1cm4gZGF0YS5kaXNwbGF5TmFtZSB8fCBudWxsOwogIH0gY2F0Y2ggKGUpIHsKICAgIHJldHVybiBudWxsOwogIH0KfQoKLy8g4LiU4Li24LiHIG1lbWJlcklkIOC4iOC4suC4gSBTaGVldHMg4LiV4Liy4LihIHVzZXJJZAphc3luYyBmdW5jdGlvbiBnZXRNZW1iZXJJZEZyb21TaGVldHModXNlcklkKSB7CiAgdHJ5IHsKICAgIGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKGAke1NDUklQVF9VUkx9P2FjdGlvbj1nZXRVc2VyJnVzZXJJZD0ke2VuY29kZVVSSUNvbXBvbmVudCh1c2VySWQpfWApOwogICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcy5qc29uKCk7CiAgICByZXR1cm4gZGF0YS5tZW1iZXJJZCA/ICtkYXRhLm1lbWJlcklkIDogbnVsbDsKICB9IGNhdGNoIChlKSB7CiAgICByZXR1cm4gbnVsbDsKICB9Cn0KCi8vIOC4muC4seC4meC4l+C4tuC4gSB1c2VySWQg4oaSIG1lbWJlcklkIOC4peC4hyBTaGVldHMKYXN5bmMgZnVuY3Rpb24gc2F2ZVVzZXJUb1NoZWV0cyh1c2VySWQsIGRpc3BsYXlOYW1lLCBtZW1iZXJJZCkgewogIHRyeSB7CiAgICBjb25zdCBwYXJhbXMgPSBuZXcgVVJMU2VhcmNoUGFyYW1zKHsgYWN0aW9uOiAnc2F2ZVVzZXInLCB1c2VySWQsIGRpc3BsYXlOYW1lOiBkaXNwbGF5TmFtZSB8fCAnJywgbWVtYmVySWQ6IFN0cmluZyhtZW1iZXJJZCkgfSk7CiAgICBhd2FpdCBmZXRjaChgJHtTQ1JJUFRfVVJMfT8ke3BhcmFtc31gKTsKICB9IGNhdGNoIChlKSB7fQp9Cgphc3luYyBmdW5jdGlvbiBhbmFseXplV2l0aEdlbWluaSh0ZXh0LCBzZW5kZXJOYW1lLCBrbm93bk1lbWJlcklkKSB7CiAgY29uc3QgbWVtYmVyTGlzdCA9IE1FTUJFUlMubWFwKG0gPT4gYGlkPSR7bS5pZH06ICR7bS5uYW1lcy5qb2luKCcvJyl9YCkuam9pbignXG4nKTsKICBjb25zdCBzZW5kZXJJbmZvID0ga25vd25NZW1iZXJJZAogICAgPyBg4Lic4Li54LmJ4Liq4LmI4LiHOiAiJHtzZW5kZXJOYW1lfSIgKGlkPSR7a25vd25NZW1iZXJJZH0pYAogICAgOiBg4Lic4Li54LmJ4Liq4LmI4LiHOiAiJHtzZW5kZXJOYW1lfSJgOwoKICBjb25zdCBwcm9tcHQgPSBg4LiE4Li44LiT4LiE4Li34Lit4Lij4Liw4Lia4Lia4Lin4Li04LmA4LiE4Lij4Liy4Liw4Lir4LmM4LiC4LmJ4Lit4LiE4Lin4Liy4Lih4LmD4LiZ4LiB4Lil4Li44LmI4Lih4LmE4Lil4LiZ4LmM4LmB4Lic4LiZ4LiB4LiL4LmI4Lit4Lih4Lia4Liz4Lij4Li44LiHCgrguKPguLLguKLguIrguLfguYjguK3guKrguKHguLLguIrguLTguIE6CiR7bWVtYmVyTGlzdH0KCiR7c2VuZGVySW5mb30K4LiC4LmJ4Lit4LiE4Lin4Liy4LihOiAiJHt0ZXh0fSIKCuC4p+C4tOC5gOC4hOC4o+C4suC4sOC4q+C5jOC4p+C5iOC4suC5gOC4geC4teC5iOC4ouC4p+C4geC4seC4muC4geC4suC4o+C4peC4suC4h+C4suC4meC4q+C4o+C4t+C4reC5hOC4oeC5iAotIOC4luC5ieC4suC5hOC4oeC5iOC4o+C4sOC4muC4uOC4iuC4t+C5iOC4rSDguYPguKvguYnguJbguLfguK3guKfguYjguLLguJzguLnguYnguKrguYjguIfguYDguJvguYfguJnguITguJnguKXguLLguYDguK3guIcKLSDguJbguYnguLLguKPguLDguJrguLjguIrguLfguYjguK3guITguJnguK3guLfguYjguJkg4LmD4Lir4LmJ4LmD4LiK4LmJ4LiK4Li34LmI4Lit4LiZ4Lix4LmJ4LiZCgrguJXguK3guJogSlNPTiDguYDguJfguYjguLLguJnguLHguYnguJk6CuC4peC4si/guJvguYjguKfguKIv4LmE4Lih4LmI4Lih4LiyOiB7ImFjdGlvbiI6ImxlYXZlIiwibWVtYmVySWQiOjxpZD4sIm1lbWJlck5hbWUiOiI84LiK4Li34LmI4LitPiIsInN0YXR1cyI6IjxsZWF2ZSDguKvguKPguLfguK0gYWJzZW50PiJ9CuC4ouC4geC5gOC4peC4tOC4geC4peC4si/guKHguLLguYHguKXguYnguKc6IHsiYWN0aW9uIjoiY2FuY2VsIiwibWVtYmVySWQiOjxpZD4sIm1lbWJlck5hbWUiOiI84LiK4Li34LmI4LitPiIsInN0YXR1cyI6InByZXNlbnQifQrguYTguKHguYjguYDguIHguLXguYjguKLguKc6IHsiYWN0aW9uIjoibm9uZSJ9YDsKCiAgdHJ5IHsKICAgIGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKEdFTUlOSV9VUkwsIHsKICAgICAgbWV0aG9kOiAnUE9TVCcsCiAgICAgIGhlYWRlcnM6IHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9LAogICAgICBib2R5OiBKU09OLnN0cmluZ2lmeSh7CiAgICAgICAgY29udGVudHM6IFt7IHBhcnRzOiBbeyB0ZXh0OiBwcm9tcHQgfV0gfV0sCiAgICAgICAgZ2VuZXJhdGlvbkNvbmZpZzogeyB0ZW1wZXJhdHVyZTogMCwgbWF4T3V0cHV0VG9rZW5zOiAxMDAgfQogICAgICB9KQogICAgfSk7CiAgICBjb25zdCBkYXRhID0gYXdhaXQgcmVzLmpzb24oKTsKICAgIGNvbnN0IHJhd1RleHQgPSBkYXRhPy5jYW5kaWRhdGVzPy5bMF0/LmNvbnRlbnQ/LnBhcnRzPy5bMF0/LnRleHQgfHwgJyc7CiAgICBjb25zdCBqc29uTWF0Y2ggPSByYXdUZXh0Lm1hdGNoKC9ce1tcc1xTXSpcfS8pOwogICAgaWYgKCFqc29uTWF0Y2gpIHJldHVybiBudWxsOwogICAgY29uc3QgcmVzdWx0ID0gSlNPTi5wYXJzZShqc29uTWF0Y2hbMF0pOwogICAgY29uc29sZS5sb2coYFtHRU1JTkldICIke3RleHR9IiDihpIgJHtKU09OLnN0cmluZ2lmeShyZXN1bHQpfWApOwogICAgcmV0dXJuIHJlc3VsdDsKICB9IGNhdGNoIChlKSB7CiAgICBjb25zb2xlLmVycm9yKCdbR0VNSU5JXSBFcnJvcjonLCBlLm1lc3NhZ2UpOwogICAgcmV0dXJuIG51bGw7CiAgfQp9Cgphc3luYyBmdW5jdGlvbiB1cGRhdGVTaGVldChtZW1iZXJJZCwgc3RhdHVzKSB7CiAgY29uc3QgcGFyYW1zID0gbmV3IFVSTFNlYXJjaFBhcmFtcyh7IGFjdGlvbjogJ3NldFN0YXR1cycsIGlkOiBTdHJpbmcobWVtYmVySWQpLCBzdGF0dXMgfSk7CiAgdHJ5IHsKICAgIGF3YWl0IGZldGNoKGAke1NDUklQVF9VUkx9PyR7cGFyYW1zfWApOwogICAgY29uc29sZS5sb2coYFtTSEVFVFNdIGlkPSR7bWVtYmVySWR9IOKGkiAke3N0YXR1c31gKTsKICB9IGNhdGNoIChlKSB7fQp9CgovLyBSZXBseSDguIHguKXguLHguJrguYPguJnguIHguKXguLjguYjguKEgTElORQphc3luYyBmdW5jdGlvbiByZXBseU1lc3NhZ2UocmVwbHlUb2tlbiwgdGV4dCkgewogIHRyeSB7CiAgICBhd2FpdCBmZXRjaCgnaHR0cHM6Ly9hcGkubGluZS5tZS92Mi9ib3QvbWVzc2FnZS9yZXBseScsIHsKICAgICAgbWV0aG9kOiAnUE9TVCcsCiAgICAgIGhlYWRlcnM6IHsKICAgICAgICAnQXV0aG9yaXphdGlvbic6IGBCZWFyZXIgJHtDSEFOTkVMX0FDQ0VTU19UT0tFTn1gLAogICAgICAgICdDb250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicKICAgICAgfSwKICAgICAgYm9keTogSlNPTi5zdHJpbmdpZnkoewogICAgICAgIHJlcGx5VG9rZW4sCiAgICAgICAgbWVzc2FnZXM6IFt7IHR5cGU6ICd0ZXh0JywgdGV4dCB9XQogICAgICB9KQogICAgfSk7CiAgfSBjYXRjaCAoZSkge30KfQoKZXhwb3J0IGRlZmF1bHQgYXN5bmMgZnVuY3Rpb24gaGFuZGxlcihyZXEsIHJlcykgewogIGlmIChyZXEubWV0aG9kICE9PSAnUE9TVCcpIHJldHVybiByZXMuc3RhdHVzKDQwNSkuanNvbih7IGVycm9yOiAnTWV0aG9kIG5vdCBhbGxvd2VkJyB9KTsKCiAgY29uc3Qgc2lnbmF0dXJlID0gcmVxLmhlYWRlcnNbJ3gtbGluZS1zaWduYXR1cmUnXTsKICBpZiAoIXZlcmlmeVNpZ25hdHVyZShKU09OLnN0cmluZ2lmeShyZXEuYm9keSksIHNpZ25hdHVyZSkpIHsKICAgIHJldHVybiByZXMuc3RhdHVzKDQwMSkuanNvbih7IGVycm9yOiAnSW52YWxpZCBzaWduYXR1cmUnIH0pOwogIH0KCiAgY29uc3QgZXZlbnRzID0gcmVxLmJvZHkuZXZlbnRzIHx8IFtdOwoKICBmb3IgKGNvbnN0IGV2ZW50IG9mIGV2ZW50cykgewogICAgaWYgKGV2ZW50LnR5cGUgIT09ICdtZXNzYWdlJyB8fCBldmVudC5tZXNzYWdlLnR5cGUgIT09ICd0ZXh0JykgY29udGludWU7CgogICAgY29uc3QgdGV4dCA9IGV2ZW50Lm1lc3NhZ2UudGV4dC50cmltKCk7CiAgICBjb25zdCB1c2VySWQgPSBldmVudC5zb3VyY2UudXNlcklkOwogICAgY29uc3QgcmVwbHlUb2tlbiA9IGV2ZW50LnJlcGx5VG9rZW47CgogICAgLy8gPT09IOC4o+C4sOC4muC4muC4peC4h+C4l+C4sOC5gOC4muC4teC4ouC4mTogIuC4ieC4seC4mSBb4LiK4Li34LmI4LitXSIgPT09CiAgICBjb25zdCByZWdpc3Rlck1hdGNoID0gdGV4dC5tYXRjaCgvXuC4ieC4seC4mVxzKyguKykkLyk7CiAgICBpZiAocmVnaXN0ZXJNYXRjaCkgewogICAgICBjb25zdCBpbnB1dE5hbWUgPSByZWdpc3Rlck1hdGNoWzFdLnRyaW0oKTsKICAgICAgY29uc3QgbWVtYmVyID0gZmluZE1lbWJlckJ5TmFtZShpbnB1dE5hbWUpOwogICAgICBpZiAobWVtYmVyKSB7CiAgICAgICAgYXdhaXQgc2F2ZVVzZXJUb1NoZWV0cyh1c2VySWQsIGlucHV0TmFtZSwgbWVtYmVyLmlkKTsKICAgICAgICBhd2FpdCByZXBseU1lc3NhZ2UocmVwbHlUb2tlbiwgYOKchSDguKXguIfguJfguLDguYDguJrguLXguKLguJnguYHguKXguYnguKc6ICR7aW5wdXROYW1lfSAoaWQ9JHttZW1iZXIuaWR9KVxu4LiE4Lij4Lix4LmJ4LiH4LiV4LmI4Lit4LmE4Lib4Lie4Li04LihICLguKXguLIiIOC5hOC4lOC5ieC5gOC4peC4ouC5guC4lOC4ouC5hOC4oeC5iOC4leC5ieC4reC4h+C4o+C4sOC4muC4uOC4iuC4t+C5iOC4rWApOwogICAgICAgIGNvbnNvbGUubG9nKGBbUkVHSVNURVJdICR7aW5wdXROYW1lfSDihpIgaWQ9JHttZW1iZXIuaWR9YCk7CiAgICAgIH0gZWxzZSB7CiAgICAgICAgYXdhaXQgcmVwbHlNZXNzYWdlKHJlcGx5VG9rZW4sIGDinYwg4LmE4Lih4LmI4Lie4Lia4LiK4Li34LmI4LitICIke2lucHV0TmFtZX0iIOC5g+C4meC4o+C4sOC4muC4mlxu4Lil4Lit4LiH4LmD4LiK4LmJ4LiK4Li34LmI4Lit4LmA4Lil4LmI4LiZ4Lir4Lij4Li34Lit4LiK4Li34LmI4Lit4LiI4Lij4Li04LiH4LiE4Lij4Lix4LiaYCk7CiAgICAgIH0KICAgICAgY29udGludWU7CiAgICB9CgogICAgLy8g4LiU4Li24LiHIG1lbWJlcklkIOC4iOC4suC4gSBjYWNoZSAoU2hlZXRzKQogICAgbGV0IGtub3duTWVtYmVySWQgPSBhd2FpdCBnZXRNZW1iZXJJZEZyb21TaGVldHModXNlcklkKTsKCiAgICAvLyDguJbguYnguLLguKLguLHguIfguYTguKHguYjguKHguLUgY2FjaGUg4Lil4Lit4LiH4LiU4Li24LiH4LiK4Li34LmI4Lit4LiI4Liy4LiBIExJTkUgQVBJCiAgICBpZiAoIWtub3duTWVtYmVySWQpIHsKICAgICAgY29uc3QgZGlzcGxheU5hbWUgPSBhd2FpdCBnZXRMaW5lRGlzcGxheU5hbWUodXNlcklkLCBldmVudC5zb3VyY2UpOwogICAgICBpZiAoZGlzcGxheU5hbWUpIHsKICAgICAgICBjb25zdCBtZW1iZXIgPSBmaW5kTWVtYmVyQnlOYW1lKGRpc3BsYXlOYW1lKTsKICAgICAgICBpZiAobWVtYmVyKSB7CiAgICAgICAgICBrbm93bk1lbWJlcklkID0gbWVtYmVyLmlkOwogICAgICAgICAgYXdhaXQgc2F2ZVVzZXJUb1NoZWV0cyh1c2VySWQsIGRpc3BsYXlOYW1lLCBtZW1iZXIuaWQpOwogICAgICAgIH0KICAgICAgfQogICAgfQoKICAgIC8vIOC4geC4o+C4reC4h+C5gOC4ieC4nuC4suC4sOC4guC5ieC4reC4hOC4p+C4suC4oeC4l+C4teC5iOC5gOC4geC4teC5iOC4ouC4p+C4geC4seC4muC4geC4suC4o+C4peC4sgogICAgY29uc3QgaGFzVHJpZ2dlciA9IFRSSUdHRVJfV09SRFMuc29tZSh3ID0+IHRleHQuaW5jbHVkZXModykpOwogICAgaWYgKCFoYXNUcmlnZ2VyKSBjb250aW51ZTsKCiAgICBjb25zdCByZXN1bHQgPSBhd2FpdCBhbmFseXplV2l0aEdlbWluaSh0ZXh0LCAnJywga25vd25NZW1iZXJJZCk7CgogICAgaWYgKHJlc3VsdCAmJiByZXN1bHQuYWN0aW9uICE9PSAnbm9uZScpIHsKICAgICAgY29uc3QgZmluYWxJZCA9IHJlc3VsdC5tZW1iZXJJZCB8fCBrbm93bk1lbWJlcklkOwogICAgICBpZiAoZmluYWxJZCkgewogICAgICAgIGF3YWl0IHVwZGF0ZVNoZWV0KGZpbmFsSWQsIHJlc3VsdC5zdGF0dXMpOwogICAgICAgIGNvbnN0IG1lbWJlck5hbWUgPSBNRU1CRVJTLmZpbmQobSA9PiBtLmlkID09PSBmaW5hbElkKT8ubmFtZXNbMF0gfHwgZmluYWxJZDsKICAgICAgICBjb25zdCBzdGF0dXNMYWJlbCA9IHJlc3VsdC5zdGF0dXMgPT09ICdsZWF2ZScgPyAn4Lil4LiyJyA6IHJlc3VsdC5zdGF0dXMgPT09ICdhYnNlbnQnID8gJ+C4m+C5iOC4p+C4oi/guILguLLguJTguIfguLLguJknIDogJ+C4oeC4suC4l+C4s+C4h+C4suC4mSc7CiAgICAgICAgYXdhaXQgcmVwbHlNZXNzYWdlKHJlcGx5VG9rZW4sIGDinIUg4Lia4Lix4LiZ4LiX4Li24LiB4LmB4Lil4LmJ4LinOiAke21lbWJlck5hbWV9ICR7c3RhdHVzTGFiZWx9YCk7CiAgICAgIH0gZWxzZSB7CiAgICAgICAgLy8g4LmE4Lih4LmI4Lij4Li54LmJ4Lin4LmI4Liy4LmD4LiE4LijIOKGkiDguYHguIjguYnguIfguYPguKvguYnguKXguIfguJfguLDguYDguJrguLXguKLguJkKICAgICAgICBhd2FpdCByZXBseU1lc3NhZ2UocmVwbHlUb2tlbiwgYOKdkyDguYTguKHguYjguJfguKPguLLguJrguKfguYjguLLguYPguITguKPguKXguLJcbuC4nuC4tOC4oSAi4LiJ4Lix4LiZIFvguIrguLfguYjguK1dIiDguYDguJ7guLfguYjguK3guKXguIfguJfguLDguYDguJrguLXguKLguJnguIHguYjguK3guJnguITguKPguLHguJpcbuC5gOC4iuC5iOC4mSAi4LiJ4Lix4LiZIOC4reC4uOC4lOC4oeC4iuC4seC4oiJgKTsKICAgICAgfQogICAgfQogIH0KCiAgcmV0dXJuIHJlcy5zdGF0dXMoMjAwKS5qc29uKHsgc3VjY2VzczogdHJ1ZSB9KTsKfQo="}
+import crypto from 'crypto';
+
+const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
+const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
+const GEMINI_API_KEY = 'AIzaSyAEA8h5_SA10Am6XV08wWByKdjkH7NAssY';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+
+// ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const MEMBERS = [
+  { id: 11, names: ['ปราโมทย์', 'ไพรวรรณ์', 'Pramot'] },
+  { id: 12, names: ['สกล', 'กิจเจริญ', 'nouvo'] },
+  { id: 13, names: ['บัณฑิต', 'นิลอ่อน', 'plug'] },
+  { id: 7,  names: ['วิทยา', 'แพงศรี', 'หมี'] },
+  { id: 4,  names: ['ศิริชัย', 'แสงวงศ์', 'aek', 'เอก'] },
+  { id: 6,  names: ['อุดมชัย', 'ทศรักษา', 'Ly'] },
+  { id: 9,  names: ['สนธยา', 'โจ้', 'โจ้ชาวดี'] },
+  { id: 1,  names: ['ภัททิยา', 'แพท์พิพัฒน์', 'Noomotasa'] },
+  { id: 2,  names: ['วันชนะ', 'ฟอร์ด'] },
+  { id: 3,  names: ['วัชรินทร์', 'วงษ์ตุรัณต์', 'Beerkujiki'] },
+  { id: 5,  names: ['สมชาย', 'ลิขิต', 'ลิขิตอณิเนยฬ์'] },
+  { id: 8,  names: ['พิพัฒน์พล', 'เบล', 'เบลดับปลู'] },
+  { id: 10, names: ['สุทิน', 'รอดยิ้ม'] },
+  { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
+];
+
+const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา'];
+
+function verifySignature(rawBody, signature) {
+  const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
+  return hash === signature;
+}
+
+async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function findMemberByName(name) {
+  if (!name) return null;
+  for (const m of MEMBERS) {
+    if (m.names.some(n => name.includes(n) || n.includes(name))) return m;
+  }
+  return null;
+}
+
+async function getLineDisplayName(userId, source) {
+  try {
+    let url;
+    if (source.type === 'group') {
+      url = `https://api.line.me/v2/bot/group/${source.groupId}/member/${userId}`;
+    } else if (source.type === 'room') {
+      url = `https://api.line.me/v2/bot/room/${source.roomId}/member/${userId}`;
+    } else {
+      url = `https://api.line.me/v2/bot/profile/${userId}`;
+    }
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` } });
+    const data = await res.json();
+    return data.displayName || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getMemberIdFromSheets(userId) {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=getUser&userId=${encodeURIComponent(userId)}`);
+    const data = await res.json();
+    return data.memberId ? +data.memberId : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function saveUserToSheets(userId, displayName, memberId) {
+  try {
+    const params = new URLSearchParams({ action: 'saveUser', userId, displayName: displayName || '', memberId: String(memberId) });
+    await fetch(`${SCRIPT_URL}?${params}`);
+  } catch (e) {}
+}
+
+async function analyzeWithGemini(text, senderName, knownMemberId) {
+  const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
+  const senderInfo = knownMemberId
+    ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
+    : `ผู้ส่ง: "${senderName}"`;
+
+  const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
+
+รายชื่อสมาชิก:
+${memberList}
+
+${senderInfo}
+ข้อความ: "${text}"
+
+วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
+- ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
+- ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
+
+ตอบ JSON เท่านั้น:
+ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
+ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
+ไม่เกี่ยว: {"action":"none"}`;
+
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 100 }
+      })
+    });
+    const data = await res.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const result = JSON.parse(jsonMatch[0]);
+    console.log(`[GEMINI] "${text}" → ${JSON.stringify(result)}`);
+    return result;
+  } catch (e) {
+    console.error('[GEMINI] Error:', e.message);
+    return null;
+  }
+}
+
+async function updateSheet(memberId, status) {
+  const params = new URLSearchParams({ action: 'setStatus', id: String(memberId), status });
+  try {
+    await fetch(`${SCRIPT_URL}?${params}`);
+    console.log(`[SHEETS] id=${memberId} → ${status}`);
+  } catch (e) {}
+}
+
+async function replyMessage(replyToken, text) {
+  try {
+    await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        replyToken,
+        messages: [{ type: 'text', text }]
+      })
+    });
+  } catch (e) {}
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // อ่าน raw body ก่อนแปลง JSON เพื่อ verify signature ถูกต้อง
+  const rawBody = await readRawBody(req);
+  const signature = req.headers['x-line-signature'];
+
+  if (!signature || !verifySignature(rawBody, signature)) {
+    console.error('[WEBHOOK] Invalid signature');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(rawBody.toString());
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  const events = body.events || [];
+
+  for (const event of events) {
+    if (event.type !== 'message' || event.message.type !== 'text') continue;
+
+    const text = event.message.text.trim();
+    const userId = event.source.userId;
+    const replyToken = event.replyToken;
+
+    // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
+    const registerMatch = text.match(/^ฉัน\s+(.+)$/);
+    if (registerMatch) {
+      const inputName = registerMatch[1].trim();
+      const member = findMemberByName(inputName);
+      if (member) {
+        await saveUserToSheets(userId, inputName, member.id);
+        await replyMessage(replyToken, `✅ ลงทะเบียนแล้ว: ${inputName} (id=${member.id})\nครั้งต่อไปพิม "ลา" ได้เลยโดยไม่ต้องระบุชื่อ`);
+        console.log(`[REGISTER] ${inputName} → id=${member.id}`);
+      } else {
+        await replyMessage(replyToken, `❌ ไม่พบชื่อ "${inputName}" ในระบบ\nลองใช้ชื่อเล่นหรือชื่อจริงครับ`);
+      }
+      continue;
+    }
+
+    // ดึง memberId จาก cache (Sheets)
+    let knownMemberId = await getMemberIdFromSheets(userId);
+
+    // ถ้ายังไม่มี cache ลองดึงชื่อจาก LINE API
+    if (!knownMemberId) {
+      const displayName = await getLineDisplayName(userId, event.source);
+      if (displayName) {
+        const member = findMemberByName(displayName);
+        if (member) {
+          knownMemberId = member.id;
+          await saveUserToSheets(userId, displayName, member.id);
+        }
+      }
+    }
+
+    // กรองเฉพาะข้อความที่เกี่ยวกับการลา
+    const hasTrigger = TRIGGER_WORDS.some(w => text.includes(w));
+    if (!hasTrigger) continue;
+
+    const result = await analyzeWithGemini(text, '', knownMemberId);
+
+    if (result && result.action !== 'none') {
+      const finalId = result.memberId || knownMemberId;
+      if (finalId) {
+        await updateSheet(finalId, result.status);
+        const memberName = MEMBERS.find(m => m.id === finalId)?.names[0] || finalId;
+        const statusLabel = result.status === 'leave' ? 'ลา' : result.status === 'absent' ? 'ป่วย/ขาดงาน' : 'มาทำงาน';
+        await replyMessage(replyToken, `✅ บันทึกแล้ว: ${memberName} ${statusLabel}`);
+      } else {
+        await replyMessage(replyToken, `❓ ไม่ทราบว่าใครลา\nพิม "ฉัน [ชื่อ]" เพื่อลงทะเบียนก่อนครับ\nเช่น "ฉัน อุดมชัย"`);
+      }
+    }
+  }
+
+  return res.status(200).json({ success: true });
+}
