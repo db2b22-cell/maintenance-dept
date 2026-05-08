@@ -1,0 +1,239 @@
+import crypto from 'crypto';
+
+const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
+const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
+const GEMINI_API_KEY = 'AIzaSyAEA8h5_SA10Am6XV08wWByKdjkH7NAssY';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+
+// ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const MEMBERS = [
+  { id: 11, names: ['ปราโมทย์', 'ไพรวรรณ์', 'Pramot'] },
+  { id: 12, names: ['สกล', 'กิจเจริญ', 'nouvo'] },
+  { id: 13, names: ['บัณฑิต', 'นิลอ่อน', 'plug'] },
+  { id: 7,  names: ['วิทยา', 'แพงศรี', 'หมี'] },
+  { id: 4,  names: ['ศิริชัย', 'แสงวงศ์', 'aek', 'เอก'] },
+  { id: 6,  names: ['อุดมชัย', 'ทศรักษา', 'Ly'] },
+  { id: 9,  names: ['สนธยา', 'โจ้', 'โจ้ชาวดี'] },
+  { id: 1,  names: ['ภัททิยา', 'แพท์พิพัฒน์', 'Noomotasa'] },
+  { id: 2,  names: ['วันชนะ', 'ฟอร์ด'] },
+  { id: 3,  names: ['วัชรินทร์', 'วงษ์ตุรัณต์', 'Beerkujiki'] },
+  { id: 5,  names: ['สมชาย', 'ลิขิต', 'ลิขิตอณิเนยฬ์'] },
+  { id: 8,  names: ['พิพัฒน์พล', 'เบล', 'เบลดับปลู'] },
+  { id: 10, names: ['สุทิน', 'รอดยิ้ม'] },
+  { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
+];
+
+const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา'];
+
+function verifySignature(rawBody, signature) {
+  const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
+  return hash === signature;
+}
+
+async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function findMemberByName(name) {
+  if (!name) return null;
+  for (const m of MEMBERS) {
+    if (m.names.some(n => name.includes(n) || n.includes(name))) return m;
+  }
+  return null;
+}
+
+async function getLineDisplayName(userId, source) {
+  try {
+    let url;
+    if (source.type === 'group') {
+      url = `https://api.line.me/v2/bot/group/${source.groupId}/member/${userId}`;
+    } else if (source.type === 'room') {
+      url = `https://api.line.me/v2/bot/room/${source.roomId}/member/${userId}`;
+    } else {
+      url = `https://api.line.me/v2/bot/profile/${userId}`;
+    }
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` } });
+    const data = await res.json();
+    return data.displayName || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getMemberIdFromSheets(userId) {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=getUser&userId=${encodeURIComponent(userId)}`);
+    const data = await res.json();
+    return data.memberId ? +data.memberId : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function saveUserToSheets(userId, displayName, memberId) {
+  try {
+    const params = new URLSearchParams({ action: 'saveUser', userId, displayName: displayName || '', memberId: String(memberId) });
+    await fetch(`${SCRIPT_URL}?${params}`);
+  } catch (e) {}
+}
+
+async function analyzeWithGemini(text, senderName, knownMemberId) {
+  const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
+  const senderInfo = knownMemberId
+    ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
+    : `ผู้ส่ง: "${senderName}"`;
+
+  const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
+
+รายชื่อสมาชิก:
+${memberList}
+
+${senderInfo}
+ข้อความ: "${text}"
+
+วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
+- ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
+- ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
+
+ตอบ JSON เท่านั้น:
+ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
+ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
+ไม่เกี่ยว: {"action":"none"}`;
+
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 100 }
+      })
+    });
+    const data = await res.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const result = JSON.parse(jsonMatch[0]);
+    console.log(`[GEMINI] "${text}" → ${JSON.stringify(result)}`);
+    return result;
+  } catch (e) {
+    console.error('[GEMINI] Error:', e.message);
+    return null;
+  }
+}
+
+async function updateSheet(memberId, status) {
+  const params = new URLSearchParams({ action: 'setStatus', id: String(memberId), status });
+  try {
+    await fetch(`${SCRIPT_URL}?${params}`);
+    console.log(`[SHEETS] id=${memberId} → ${status}`);
+  } catch (e) {}
+}
+
+async function replyMessage(replyToken, text) {
+  try {
+    await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        replyToken,
+        messages: [{ type: 'text', text }]
+      })
+    });
+  } catch (e) {}
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // อ่าน raw body ก่อนแปลง JSON เพื่อ verify signature ถูกต้อง
+  const rawBody = await readRawBody(req);
+  const signature = req.headers['x-line-signature'];
+
+  if (!signature || !verifySignature(rawBody, signature)) {
+    console.error('[WEBHOOK] Invalid signature');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(rawBody.toString());
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  const events = body.events || [];
+
+  for (const event of events) {
+    if (event.type !== 'message' || event.message.type !== 'text') continue;
+
+    const text = event.message.text.trim();
+    const userId = event.source.userId;
+    const replyToken = event.replyToken;
+
+    // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
+    const registerMatch = text.match(/^ฉัน\s+(.+)$/);
+    if (registerMatch) {
+      const inputName = registerMatch[1].trim();
+      const member = findMemberByName(inputName);
+      if (member) {
+        await saveUserToSheets(userId, inputName, member.id);
+        await replyMessage(replyToken, `✅ ลงทะเบียนแล้ว: ${inputName} (id=${member.id})\nครั้งต่อไปพิม "ลา" ได้เลยโดยไม่ต้องระบุชื่อ`);
+        console.log(`[REGISTER] ${inputName} → id=${member.id}`);
+      } else {
+        await replyMessage(replyToken, `❌ ไม่พบชื่อ "${inputName}" ในระบบ\nลองใช้ชื่อเล่นหรือชื่อจริงครับ`);
+      }
+      continue;
+    }
+
+    // ดึง memberId จาก cache (Sheets)
+    let knownMemberId = await getMemberIdFromSheets(userId);
+
+    // ถ้ายังไม่มี cache ลองดึงชื่อจาก LINE API
+    if (!knownMemberId) {
+      const displayName = await getLineDisplayName(userId, event.source);
+      if (displayName) {
+        const member = findMemberByName(displayName);
+        if (member) {
+          knownMemberId = member.id;
+          await saveUserToSheets(userId, displayName, member.id);
+        }
+      }
+    }
+
+    // กรองเฉพาะข้อความที่เกี่ยวกับการลา
+    const hasTrigger = TRIGGER_WORDS.some(w => text.includes(w));
+    if (!hasTrigger) continue;
+
+    const result = await analyzeWithGemini(text, '', knownMemberId);
+
+    if (result && result.action !== 'none') {
+      const finalId = result.memberId || knownMemberId;
+      if (finalId) {
+        await updateSheet(finalId, result.status);
+        const memberName = MEMBERS.find(m => m.id === finalId)?.names[0] || finalId;
+        const statusLabel = result.status === 'leave' ? 'ลา' : result.status === 'absent' ? 'ป่วย/ขาดงาน' : 'มาทำงาน';
+        await replyMessage(replyToken, `✅ บันทึกแล้ว: ${memberName} ${statusLabel}`);
+      } else {
+        await replyMessage(replyToken, `❓ ไม่ทราบว่าใครลา\nพิม "ฉัน [ชื่อ]" เพื่อลงทะเบียนก่อนครับ\nเช่น "ฉัน อุดมชัย"`);
+      }
+    }
+  }
+
+  return res.status(200).json({ success: true });
+}
