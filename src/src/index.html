@@ -285,26 +285,34 @@ function setSyncStatus(msg, color) {
   if(el){ el.textContent = msg; el.style.color = color || '#27ae60'; }
 }
 
-let _lastStatusHash = '';
-async function loadFromSheets(silent) {
-  if (!silent) setSyncStatus('⏳ กำลังโหลด...', '#888');
-  try {
-    const r = await fetch(SCRIPT_URL + '?_=' + Date.now());
-    const data = await r.json();
-    if(Array.isArray(data) && data.length > 0) {
-      const statusMap = {};
-      data.forEach(s => { statusMap[s.id] = s.status; });
-      const hash = JSON.stringify(statusMap);
-      if (hash !== _lastStatusHash) {
-        _lastStatusHash = hash;
-        staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status }));
-        nextId = Math.max(...staff.map(s=>s.id)) + 1;
-        renderAll();
-      }
-      setSyncStatus('🔄 ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}), '#27ae60');
-    }
-  } catch(e) { setSyncStatus('⚠️ ออฟไลน์', '#e74c3c'); }
+function applySheetData(data) {
+  if (!Array.isArray(data) || data.length === 0) return;
+  const statusMap = {};
+  data.forEach(s => { statusMap[s.id] = s.status; });
+  staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status }));
+  nextId = Math.max(...staff.map(s => s.id)) + 1;
+  renderAll();
+  setSyncStatus('🔄 ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}), '#27ae60');
 }
+
+function connectLive() {
+  setSyncStatus('⏳ กำลังเชื่อมต่อ...', '#888');
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'init' || msg.type === 'update') applySheetData(msg.data);
+      if (msg.type === 'reconnect') { es.close(); setTimeout(connectLive, 100); }
+    } catch(err) {}
+  };
+  es.onerror = () => {
+    es.close();
+    setSyncStatus('🔴 กำลังเชื่อมต่อใหม่...', '#e74c3c');
+    setTimeout(connectLive, 3000);
+  };
+}
+
+function loadFromSheets() { connectLive(); }
 
 async function saveToSheets(action, p) {
   setSyncStatus('⏳ บันทึก...', '#f39c12');
@@ -549,8 +557,7 @@ function selectCalDate(dateStr) {
 }
 
 
-loadFromSheets();
-setInterval(() => loadFromSheets(true), 10000);
+connectLive();
 updateClock();
 setInterval(updateClock,1000);
 renderAll();
