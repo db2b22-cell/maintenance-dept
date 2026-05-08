@@ -3,8 +3,8 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const GEMINI_API_KEY = 'AIzaSyAEA8h5_SA10Am6XV08wWByKdjkH7NAssY';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+const THAILLM_API_KEY = 'Bkz8utfd1YWQe0SBkuVzubDprXoWId1X';
+const THAILLM_URL = 'https://thaillm.or.th/api/v1/chat/completions';
 
 // ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
 export const config = {
@@ -113,23 +113,28 @@ ${senderInfo}
 ไม่เกี่ยว: {"action":"none"}`;
 
   try {
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(THAILLM_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${THAILLM_API_KEY}`
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 100 }
+        model: 'openthaigpt',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 200,
+        temperature: 0
       })
     });
     const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const rawText = data?.choices?.[0]?.message?.content || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) return null;
     const result = JSON.parse(jsonMatch[0]);
-    console.log(`[GEMINI] "${text}" → ${JSON.stringify(result)}`);
+    console.log(`[THAILLM] "${text}" → ${JSON.stringify(result)}`);
     return result;
   } catch (e) {
-    console.error('[GEMINI] Error:', e.message);
+    console.error('[THAILLM] Error:', e.message);
     return null;
   }
 }
