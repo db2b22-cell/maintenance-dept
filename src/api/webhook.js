@@ -3,8 +3,8 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const GEMINI_API_KEY = 'AIzaSyAEA8h5_SA10Am6XV08wWByKdjkH7NAssY';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+const THAILLM_API_KEY = 'Bkz8utfd1YWQe0SBkuVzubDprXoWId1X';
+const THAILLM_URL = 'https://thaillm.or.th/api/v1/chat/completions';
 
 // ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
 export const config = {
@@ -30,7 +30,7 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา'];
+const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า'];
 
 function verifySignature(rawBody, signature) {
   const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
@@ -95,7 +95,15 @@ async function analyzeWithGemini(text, senderName, knownMemberId) {
     ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
     : `ผู้ส่ง: "${senderName}"`;
 
+  // Thai date context so LLM can resolve relative dates like "วันที่ 14"
+  const now = new Date();
+  const thaiNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const todayStr = thaiNow.toISOString().slice(0, 10);
+  const thaiMonth = thaiNow.getUTCMonth() + 1;
+  const thaiYear = thaiNow.getUTCFullYear();
+
   const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
+วันนี้คือ ${todayStr} (เดือน ${thaiMonth} ปี ${thaiYear})
 
 รายชื่อสมาชิก:
 ${memberList}
@@ -106,30 +114,38 @@ ${senderInfo}
 วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
 - ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
 - ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
+- ลาล่วงหน้า = บอกล่วงหน้าว่าจะลาในวันอื่น (ไม่ใช่วันนี้)
+- ถ้าบอกลาล่วงหน้า ให้คำนวณ startDate และ endDate เป็นรูปแบบ YYYY-MM-DD โดยใช้ปีและเดือนปัจจุบัน
 
 ตอบ JSON เท่านั้น:
-ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
+ลาล่วงหน้า/บอกล่วงหน้า/ลาวันที่.../ลา X วัน: {"action":"leave_advance","memberId":<id>,"memberName":"<ชื่อ>","startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD"}
+ลา/ป่วย/ไม่มา (วันนี้): {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
 ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
 ไม่เกี่ยว: {"action":"none"}`;
 
   try {
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(THAILLM_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${THAILLM_API_KEY}`
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 100 }
+        model: 'openthaigpt',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 200,
+        temperature: 0
       })
     });
     const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const rawText = data?.choices?.[0]?.message?.content || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) return null;
     const result = JSON.parse(jsonMatch[0]);
-    console.log(`[GEMINI] "${text}" → ${JSON.stringify(result)}`);
+    console.log(`[THAILLM] "${text}" → ${JSON.stringify(result)}`);
     return result;
   } catch (e) {
-    console.error('[GEMINI] Error:', e.message);
+    console.error('[THAILLM] Error:', e.message);
     return null;
   }
 }
@@ -193,10 +209,7 @@ export default async function handler(req, res) {
       const member = findMemberByName(inputName);
       if (member) {
         await saveUserToSheets(userId, inputName, member.id);
-        await replyMessage(replyToken, `✅ ลงทะเบียนแล้ว: ${inputName} (id=${member.id})\nครั้งต่อไปพิม "ลา" ได้เลยโดยไม่ต้องระบุชื่อ`);
         console.log(`[REGISTER] ${inputName} → id=${member.id}`);
-      } else {
-        await replyMessage(replyToken, `❌ ไม่พบชื่อ "${inputName}" ในระบบ\nลองใช้ชื่อเล่นหรือชื่อจริงครับ`);
       }
       continue;
     }
@@ -225,12 +238,13 @@ export default async function handler(req, res) {
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
-        await updateSheet(finalId, result.status);
-        const memberName = MEMBERS.find(m => m.id === finalId)?.names[0] || finalId;
-        const statusLabel = result.status === 'leave' ? 'ลา' : result.status === 'absent' ? 'ป่วย/ขาดงาน' : 'มาทำงาน';
-        await replyMessage(replyToken, `✅ บันทึกแล้ว: ${memberName} ${statusLabel}`);
-      } else {
-        await replyMessage(replyToken, `❓ ไม่ทราบว่าใครลา\nพิม "ฉัน [ชื่อ]" เพื่อลงทะเบียนก่อนครับ\nเช่น "ฉัน อุดมชัย"`);
+        if (result.action === 'leave_advance' && result.startDate) {
+          const endDate = result.endDate || result.startDate;
+          const status = `leave_advance:${result.startDate}:${endDate}`;
+          await updateSheet(finalId, status);
+        } else if (result.status) {
+          await updateSheet(finalId, result.status);
+        }
       }
     }
   }
