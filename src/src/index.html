@@ -285,18 +285,23 @@ function setSyncStatus(msg, color) {
   if(el){ el.textContent = msg; el.style.color = color || '#27ae60'; }
 }
 
-async function loadFromSheets() {
-  setSyncStatus('⏳ กำลังโหลด...', '#888');
+let _lastStatusHash = '';
+async function loadFromSheets(silent) {
+  if (!silent) setSyncStatus('⏳ กำลังโหลด...', '#888');
   try {
-    const r = await fetch(SCRIPT_URL);
+    const r = await fetch(SCRIPT_URL + '?_=' + Date.now());
     const data = await r.json();
     if(Array.isArray(data) && data.length > 0) {
       const statusMap = {};
       data.forEach(s => { statusMap[s.id] = s.status; });
-      staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status }));
-      nextId = Math.max(...staff.map(s=>s.id)) + 1;
-      renderAll();
-      setSyncStatus('✅ ซิงค์ ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}), '#27ae60');
+      const hash = JSON.stringify(statusMap);
+      if (hash !== _lastStatusHash) {
+        _lastStatusHash = hash;
+        staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status }));
+        nextId = Math.max(...staff.map(s=>s.id)) + 1;
+        renderAll();
+      }
+      setSyncStatus('🔄 ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}), '#27ae60');
     }
   } catch(e) { setSyncStatus('⚠️ ออฟไลน์', '#e74c3c'); }
 }
@@ -545,7 +550,7 @@ function selectCalDate(dateStr) {
 
 
 loadFromSheets();
-setInterval(loadFromSheets, 30000);
+setInterval(() => loadFromSheets(true), 10000);
 updateClock();
 setInterval(updateClock,1000);
 renderAll();
