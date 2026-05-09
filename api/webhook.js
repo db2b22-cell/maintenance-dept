@@ -111,6 +111,16 @@ function extractLeaveDateFromText(text) {
   let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
 
+  // รูปแบบ "พรุ่งนี้"
+  if (/พรุ่งนี้/.test(text)) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const ty2 = tomorrow.getFullYear().toString();
+    const tm2 = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const td2 = String(tomorrow.getDate()).padStart(2, '0');
+    return `${ty2}-${tm2}-${td2}`;
+  }
+
   // รูปแบบ "วันที่ 15" หรือ "วันที15" → ใช้เดือน/ปีปัจจุบัน
   m = text.match(/วันที่?\s*(\d{1,2})/);
   if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
