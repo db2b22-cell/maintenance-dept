@@ -89,14 +89,28 @@ async function saveUserToSheets(userId, displayName, memberId) {
   } catch (e) {}
 }
 
+// สกัดวันที่จากข้อความด้วย regex (ไม่พึ่ง AI)
+function extractLeaveDateFromText(text) {
+  const now = new Date();
+  const ty = now.getFullYear().toString();
+  const tm = String(now.getMonth() + 1).padStart(2, '0');
+
+  // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
+  let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+
+  // รูปแบบ "วันที่ 15" หรือ "วันที15" → ใช้เดือน/ปีปัจจุบัน
+  m = text.match(/วันที่?\s*(\d{1,2})/);
+  if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
+
+  return null;
+}
+
 async function analyzeWithGemini(text, senderName, knownMemberId) {
   const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
   const senderInfo = knownMemberId
     ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
     : `ผู้ส่ง: "${senderName}"`;
-
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const [ty, tm] = todayIso.split('-');
 
   const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
 
@@ -105,17 +119,13 @@ ${memberList}
 
 ${senderInfo}
 ข้อความ: "${text}"
-วันที่วันนี้: ${todayIso}
 
 วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
 - ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
 - ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
-- leaveDate: ถ้ามีระบุวันที่ลาให้แปลงเป็น YYYY-MM-DD เช่น "15/05/2026" → "2026-05-15"
-  ถ้าระบุแค่วันที่ (เช่น "วันที่ 15") ให้ใช้เดือนและปีปัจจุบัน (${ty}-${tm}-DD)
-  ถ้าไม่ระบุวันที่ ให้ leaveDate เป็น null
 
 ตอบ JSON เท่านั้น:
-ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>","leaveDate":"<YYYY-MM-DD หรือ null>"}
+ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
 ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
 ไม่เกี่ยว: {"action":"none"}`;
 
@@ -235,10 +245,13 @@ export default async function handler(req, res) {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
         let status = result.status;
-        if (result.leaveDate && (status === 'leave' || status === 'absent')) {
-          const today = new Date().toISOString().slice(0, 10);
-          if (result.leaveDate > today) {
-            status = `leave_advance:${result.leaveDate}`;
+        if (status === 'leave' || status === 'absent') {
+          const leaveDate = extractLeaveDateFromText(text);
+          if (leaveDate) {
+            const today = new Date().toISOString().slice(0, 10);
+            if (leaveDate > today) {
+              status = `leave_advance:${leaveDate}`;
+            }
           }
         }
         await updateSheet(finalId, status);
