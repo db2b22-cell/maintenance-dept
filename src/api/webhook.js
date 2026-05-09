@@ -30,7 +30,34 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า'];
+const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า', 'พรุ่งนี้'];
+
+// สกัดวันที่จากข้อความ รองรับ "พรุ่งนี้" และ "วันที่ X"
+function extractLeaveDateFromText(text) {
+  const now = new Date(new Date().getTime() + 7 * 60 * 60 * 1000); // Thai time
+  const ty = now.getUTCFullYear().toString();
+  const tm = String(now.getUTCMonth() + 1).padStart(2, '0');
+
+  // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
+  let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+
+  // รูปแบบ "พรุ่งนี้"
+  if (/พรุ่งนี้/.test(text)) {
+    const tomorrow = new Date(now.getTime());
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const ty2 = tomorrow.getUTCFullYear().toString();
+    const tm2 = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
+    const td2 = String(tomorrow.getUTCDate()).padStart(2, '0');
+    return `${ty2}-${tm2}-${td2}`;
+  }
+
+  // รูปแบบ "วันที่ 15" หรือ "วันที15"
+  m = text.match(/วันที่?\s*(\d{1,2})/);
+  if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
+
+  return null;
+}
 
 function verifySignature(rawBody, signature) {
   const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
@@ -243,7 +270,16 @@ export default async function handler(req, res) {
           const status = `leave_advance:${result.startDate}:${endDate}`;
           await updateSheet(finalId, status);
         } else if (result.status) {
-          await updateSheet(finalId, result.status);
+          // Fallback: ถ้า LLM บอกว่า leave แต่ข้อความมีวันในอนาคต → เปลี่ยนเป็น leave_advance
+          let status = result.status;
+          if (status === 'leave' || status === 'absent') {
+            const thaiToday = new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const leaveDate = extractLeaveDateFromText(text);
+            if (leaveDate && leaveDate > thaiToday) {
+              status = `leave_advance:${leaveDate}:${leaveDate}`;
+            }
+          }
+          await updateSheet(finalId, status);
         }
       }
     }
