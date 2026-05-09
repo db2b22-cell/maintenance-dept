@@ -693,6 +693,18 @@
       animation:slideUp 0.25s cubic-bezier(0.4,0,0.2,1);
     }
     .area5s-modal-box{max-width:980px;width:96vw;overflow-y:auto;max-height:92vh;}
+    .skill-modal-box{max-width:400px;width:94vw;text-align:center;}
+    .skill-modal-photo{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #4f8ef7;margin:0 auto 10px;display:block;}
+    .skill-modal-name{font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:2px;}
+    .skill-modal-role{font-size:0.8rem;color:#64748b;margin-bottom:16px;}
+    .skill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px;}
+    .skill-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:12px;border:1.5px solid #e2e8f0;background:#f8fafc;}
+    .skill-item.on{border-color:#4f8ef7;background:linear-gradient(135deg,#eff6ff,#dbeafe);}
+    .skill-icon{font-size:1.35rem;}
+    .skill-label{font-size:0.65rem;font-weight:600;color:#94a3b8;text-align:center;line-height:1.3;}
+    .skill-item.on .skill-label{color:#2563eb;}
+    .skill-edit-btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;padding:9px 28px;font-size:0.88rem;font-weight:600;cursor:pointer;width:100%;}
+    .skill-edit-btn:hover{background:linear-gradient(135deg,#2563eb,#1d4ed8);}
     .area5s-title{font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:14px;}
     .fp5s-outer{position:relative;display:block;width:100%;overflow:auto;}
     .fp5s-outer img.fp5s-bg{width:100%;display:block;max-width:949px;height:auto;border-radius:12px;}
@@ -1032,8 +1044,9 @@ function applySheetData(data) {
   _lastDataHash = newHash;
 
   const statusMap = {};
-  data.forEach(s => { statusMap[s.id] = s.status; });
-  staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status }));
+  const skillsMap = {};
+  data.forEach(s => { statusMap[s.id] = s.status; if (s.skills) skillsMap[s.id] = s.skills; });
+  staff = DEFAULT_STAFF.map(s => ({ ...s, status: statusMap[s.id] || s.status, skills: skillsMap[s.id] || s.skills || {} }));
   nextId = Math.max(...staff.map(s => s.id)) + 1;
 
   if (changed) {
@@ -1144,7 +1157,7 @@ function renderAll() {
         else if (ps.effective==='leave') cardCls += ' card-leave';
         else if (ps.advanceDate) cardCls += ' card-leave-advance';
         card.className = cardCls;
-        card.onclick = () => openEditModal(s.id);
+        card.onclick = () => openSkillModal(s.id);
         const advanceBadge = ps.advanceDate
           ? `<span class="status-badge status-leave-advance">ลา วันที่ ${formatDateFullRange(ps.advanceDate, ps.advanceEnd)}</span>`
           : '';
@@ -1199,6 +1212,37 @@ function openEditModal(id) {
   document.getElementById('staffModal').classList.add('open');
 }
 function closeStaffModal() { document.getElementById('staffModal').classList.remove('open'); renderAll(); }
+
+const SKILL_ICONS = {
+  'งานไฟฟ้าในอาคาร': '⚡',
+  'งานขึ้นที่สูง': '🪜',
+  'งานอับอากาศ': '💨',
+  'ขับโฟล์คลิฟท์': '🚜',
+  'ขับบุมลิฟท์': '🏗️'
+};
+function openSkillModal(id) {
+  const s = staff.find(x => x.id === id);
+  if (!s) return;
+  const skills = s.skills || {};
+  const skillHtml = Object.entries(SKILL_ICONS).map(([k, icon]) =>
+    `<div class="skill-item${skills[k] ? ' on' : ''}">
+      <span class="skill-icon">${icon}</span>
+      <span class="skill-label">${k}</span>
+    </div>`
+  ).join('');
+  const photoHtml = PHOTOS[s.name]
+    ? `<img class="skill-modal-photo" src="${PHOTOS[s.name]}" alt="${s.name}">`
+    : avatarEl(s.name, 96);
+  document.getElementById('skillModalContent').innerHTML = `
+    ${photoHtml}
+    <div class="skill-modal-name">${s.name}</div>
+    <div class="skill-modal-role">${s.role}</div>
+    <div class="skill-grid">${skillHtml}</div>
+    <button class="skill-edit-btn" onclick="closeSkillModal();openEditModal(${s.id})">✏️ แก้ไขข้อมูล</button>
+  `;
+  document.getElementById('skillModal').classList.add('open');
+}
+function closeSkillModal() { document.getElementById('skillModal').classList.remove('open'); }
 function saveStaff() {
   const name=document.getElementById('inputName').value.trim();
   const role=document.getElementById('inputRole').value.trim();
@@ -1230,6 +1274,7 @@ function deleteStaff() {
   save();closeStaffModal();renderAll();
 }
 document.getElementById('staffModal').addEventListener('click',function(e){if(e.target===this)closeStaffModal();});
+document.getElementById('skillModal').addEventListener('click',function(e){if(e.target===this)closeSkillModal();});
 
 function openOrgModal() {
   const content=document.getElementById('orgContent');
@@ -1394,6 +1439,14 @@ document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') requestWakeLock();
 });
 </script>
+
+<!-- Skill Profile Modal -->
+<div class="modal-overlay" id="skillModal">
+  <div class="modal-box skill-modal-box">
+    <button class="modal-close" onclick="closeSkillModal()">✕</button>
+    <div id="skillModalContent"></div>
+  </div>
+</div>
 
 <!-- 5ส Area Modal -->
 <div class="modal-overlay" id="area5sModal">
