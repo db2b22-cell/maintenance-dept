@@ -262,10 +262,9 @@ export default async function handler(req, res) {
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
 
-    // ถ้ารู้จักผู้ส่งแล้ว → keyword matching ทันที ไม่ต้องรอ AI
-    let result = knownMemberId ? quickDetect(text, knownMemberId) : null;
-    // ไม่รู้จัก หรือ keyword ไม่ชัด → ใช้ AI
-    if (!result) result = await analyzeWithGemini(text, '', knownMemberId);
+    // keyword matching อย่างเดียว ไม่ใช้ AI
+    if (!knownMemberId) continue;
+    const result = quickDetect(text, knownMemberId);
 
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
