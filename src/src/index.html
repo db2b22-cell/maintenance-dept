@@ -1452,7 +1452,7 @@ function openArea5sModal() {
   document.getElementById('area5sModal').classList.add('open');
 }
 function closeArea5sModal() { document.getElementById('area5sModal').classList.remove('open'); }
-document.getElementById('area5sModal').addEventListener('click', function(e){ if(e.target===this) closeArea5sModal(); });
+document.getElementById('area5sModal') && document.getElementById('area5sModal').addEventListener('click', function(e){ if(e.target===this) closeArea5sModal(); });
 
 // ===== ระบบป้องกันจอดับ (ทุกวิธี) =====
 
