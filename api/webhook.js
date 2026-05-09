@@ -6,7 +6,10 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8To
 const THAILLM_API_KEY = 'Bkz8utfd1YWQe0SBkuVzubDprXoWId1X';
 const THAILLM_URL = 'https://thaillm.or.th/api/v1/chat/completions';
 
-// ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
+// URL ของ NLP Classifier Server (WangchanBERTa บน Google Colab + ngrok)
+// ตั้งค่าใน Vercel Environment Variables: NLP_CLASSIFIER_URL
+const NLP_CLASSIFIER_URL = process.env.NLP_CLASSIFIER_URL || '';
+
 export const config = {
   api: {
     bodyParser: false,
@@ -30,21 +33,106 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-const TRIGGER_WORDS = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'หาหมอ', 'นัดหมอ', 'พบแพทย์', 'พรุ่งนี้'];
-const LEAVE_RE = /ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/;
+// ─── ขั้นที่ 1: Thai NLP Classifier (WangchanBERTa) ──────────────────────────
+// เรียก inference server ที่ run บน Google Colab
+// คืนค่า true = เกี่ยวกับการลา → ส่งต่อให้ LLM
+// คืนค่า false = ข้อความทั่วไป → หยุดที่นี่ (ประหยัด LLM token)
+async function classifyWithNLP(text) {
+  if (!NLP_CLASSIFIER_URL) {
+    // ถ้ายังไม่ได้ตั้งค่า NLP server ให้ fallback ไปใช้ broad regex
+    console.warn('[NLP] NLP_CLASSIFIER_URL not set, using regex fallback');
+    return LEAVE_BROAD_RE.test(text);
+  }
 
-const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
-const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
-
-// ถ้ารู้จักผู้ส่งแล้ว ใช้ keyword matching แทน AI
-function quickDetect(text, memberId) {
-  if (CANCEL_WORDS.some(w => text.includes(w)))
-    return { action: 'cancel', memberId, status: 'present' };
-  if (LEAVE_RE.test(text) || LEAVE_WORDS.some(w => text.includes(w)))
-    return { action: 'leave', memberId, status: 'leave' };
-  return null;
+  try {
+    const res = await fetch(`${NLP_CLASSIFIER_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(3000), // timeout 3s ไม่ให้ block
+    });
+    const data = await res.json();
+    console.log(`[NLP] "${text}" → is_leave=${data.is_leave} conf=${data.confidence}`);
+    return data.is_leave === true;
+  } catch (e) {
+    // NLP server ไม่ตอบ (Colab หยุด ฯลฯ) → fallback regex
+    console.warn('[NLP] classifier unavailable, using regex fallback:', e.message);
+    return LEAVE_BROAD_RE.test(text);
+  }
 }
 
+// broad regex fallback (ใช้ตอน NLP server ไม่พร้อม)
+const LEAVE_BROAD_RE = new RegExp(
+  'ลา|ไม่มา|ไม่สบาย|ป่วย|หยุด|ติดธุระ|มีธุระ|' +
+  'มาแล้ว|มาได้|ยกเลิก|หาหมอ|นัดหมอ|พบแพทย์|' +
+  'ลาบ่าย|ลาเช้า|ครึ่งวัน|ลากิจ|ลาพักร้อน|ลาคลอด'
+);
+
+// ─── ขั้นที่ 2: LLM (OpenThaiGPT) extract บริบท ─────────────────────────────
+// เรียกเฉพาะเมื่อ NLP classifier ยืนยันว่าเกี่ยวกับการลาแล้ว
+// ทำหน้าที่: ระบุว่าใคร ลาวันไหน ประเภทใด ยกเลิกหรือเปล่า
+async function extractLeaveContextWithLLM(text, senderName, knownMemberId) {
+  const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
+  const senderInfo = knownMemberId
+    ? `ผู้ส่ง: "${senderName || '?'}" (memberId=${knownMemberId})`
+    : `ผู้ส่ง: "${senderName || 'ไม่ทราบ'}"`;
+
+  const now = new Date();
+  const thaiNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const todayStr = thaiNow.toISOString().slice(0, 10);
+  const thaiMonth = thaiNow.getUTCMonth() + 1;
+  const thaiYear = thaiNow.getUTCFullYear();
+
+  const prompt = `ข้อความนี้ผ่านการตรวจแล้วว่าเกี่ยวกับการลางาน
+วันนี้: ${todayStr} (เดือน ${thaiMonth} ปี ${thaiYear})
+
+รายชื่อสมาชิก:
+${memberList}
+
+${senderInfo}
+ข้อความ: "${text}"
+
+สกัด JSON เท่านั้น:
+- ถ้าไม่ระบุชื่อ → memberId = ผู้ส่ง
+- "พรุ่งนี้" = ${new Date(thaiNow.getTime() + 86400000).toISOString().slice(0, 10)}
+- "มะรืนนี้" = ${new Date(thaiNow.getTime() + 172800000).toISOString().slice(0, 10)}
+- "วันที่ X" ไม่มีเดือน → เดือน ${thaiMonth} ปี ${thaiYear}
+- ลาหลายวัน → startDate ถึง endDate
+- วันลา > ${todayStr} → action = leave_advance
+
+ลาวันนี้/ไม่มาวันนี้: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"leave"}
+ป่วย/ไม่สบาย: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"absent"}
+ลาล่วงหน้า: {"action":"leave_advance","memberId":<id>,"memberName":"<ชื่อ>","startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD"}
+ยกเลิก/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}`;
+
+  try {
+    const res = await fetch(THAILLM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${THAILLM_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'openthaigpt',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 150,
+        temperature: 0
+      })
+    });
+    const data = await res.json();
+    const rawText = data?.choices?.[0]?.message?.content || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
+    if (!jsonMatch) return null;
+    const result = JSON.parse(jsonMatch[0]);
+    console.log(`[LLM] "${text}" → ${JSON.stringify(result)}`);
+    return result;
+  } catch (e) {
+    console.error('[LLM] Error:', e.message);
+    return null;
+  }
+}
+
+// ─── Utility functions ────────────────────────────────────
 function verifySignature(rawBody, signature) {
   const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
   return hash === signature;
@@ -102,81 +190,27 @@ async function saveUserToSheets(userId, displayName, memberId) {
   } catch (e) {}
 }
 
-// สกัดวันที่จากข้อความด้วย regex (ไม่พึ่ง AI)
+// fallback สกัดวันที่จาก text เผื่อ LLM ตีความ action ผิด (leave แต่จริงๆ เป็น leave_advance)
 function extractLeaveDateFromText(text) {
-  const now = new Date();
-  const ty = now.getFullYear().toString();
-  const tm = String(now.getMonth() + 1).padStart(2, '0');
+  const now = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
+  const ty = now.getUTCFullYear().toString();
+  const tm = String(now.getUTCMonth() + 1).padStart(2, '0');
 
-  // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
   let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
 
-  // รูปแบบ "พรุ่งนี้"
   if (/พรุ่งนี้/.test(text)) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const ty2 = tomorrow.getFullYear().toString();
-    const tm2 = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const td2 = String(tomorrow.getDate()).padStart(2, '0');
-    return `${ty2}-${tm2}-${td2}`;
+    const t = new Date(now.getTime() + 86400000);
+    return t.toISOString().slice(0, 10);
   }
-
-  // รูปแบบ "วันที่ 15" หรือ "วันที15" → ใช้เดือน/ปีปัจจุบัน
+  if (/มะรืน/.test(text)) {
+    const t = new Date(now.getTime() + 172800000);
+    return t.toISOString().slice(0, 10);
+  }
   m = text.match(/วันที่?\s*(\d{1,2})/);
   if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
 
   return null;
-}
-
-async function analyzeWithGemini(text, senderName, knownMemberId) {
-  const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
-  const senderInfo = knownMemberId
-    ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
-    : `ผู้ส่ง: "${senderName}"`;
-
-  const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
-
-รายชื่อสมาชิก:
-${memberList}
-
-${senderInfo}
-ข้อความ: "${text}"
-
-วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
-- ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
-- ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
-
-ตอบ JSON เท่านั้น:
-ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
-ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
-ไม่เกี่ยว: {"action":"none"}`;
-
-  try {
-    const res = await fetch(THAILLM_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${THAILLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'openthaigpt',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-        temperature: 0
-      })
-    });
-    const data = await res.json();
-    const rawText = data?.choices?.[0]?.message?.content || '';
-    const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) return null;
-    const result = JSON.parse(jsonMatch[0]);
-    console.log(`[THAILLM] "${text}" → ${JSON.stringify(result)}`);
-    return result;
-  } catch (e) {
-    console.error('[THAILLM] Error:', e.message);
-    return null;
-  }
 }
 
 async function updateSheet(memberId, status) {
@@ -187,29 +221,12 @@ async function updateSheet(memberId, status) {
   } catch (e) {}
 }
 
-async function replyMessage(replyToken, text) {
-  try {
-    await fetch('https://api.line.me/v2/bot/message/reply', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        replyToken,
-        messages: [{ type: 'text', text }]
-      })
-    });
-  } catch (e) {}
-}
-
+// ─── Main handler ─────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // อ่าน raw body ก่อนแปลง JSON เพื่อ verify signature ถูกต้อง
   const rawBody = await readRawBody(req);
   const signature = req.headers['x-line-signature'];
-
   if (!signature || !verifySignature(rawBody, signature)) {
     console.error('[WEBHOOK] Invalid signature');
     return res.status(401).json({ error: 'Invalid signature' });
@@ -222,16 +239,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  const events = body.events || [];
-
-  for (const event of events) {
+  for (const event of (body.events || [])) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const text = event.message.text.trim();
     const userId = event.source.userId;
-    const replyToken = event.replyToken;
 
-    // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
+    // ─── ระบบลงทะเบียน: "ฉัน [ชื่อ]" ───────────────────
     const registerMatch = text.match(/^ฉัน\s+(.+)$/);
     if (registerMatch) {
       const inputName = registerMatch[1].trim();
@@ -243,10 +257,8 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // ดึง memberId จาก cache (Sheets)
+    // ดึง memberId
     let knownMemberId = await getMemberIdFromSheets(userId);
-
-    // ถ้ายังไม่มี cache ลองดึงชื่อจาก LINE API
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, event.source);
       if (displayName) {
@@ -258,30 +270,40 @@ export default async function handler(req, res) {
       }
     }
 
-    // กรองเฉพาะข้อความที่เกี่ยวกับการลา
-    const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
-    if (!hasTrigger) continue;
+    // ─── ขั้นที่ 1: NLP Classifier (WangchanBERTa) ──────
+    // ถ้าไม่ใช่การลา → หยุด ไม่เรียก LLM (ประหยัด token)
+    const isLeaveRelated = await classifyWithNLP(text);
+    if (!isLeaveRelated) {
+      console.log(`[NLP] skip: "${text}"`);
+      continue;
+    }
 
-    // ถ้ารู้จักผู้ส่งแล้ว → keyword matching ทันที ไม่ต้องรอ AI
-    let result = knownMemberId ? quickDetect(text, knownMemberId) : null;
-    // ไม่รู้จัก หรือ keyword ไม่ชัด → ใช้ AI
-    if (!result) result = await analyzeWithGemini(text, '', knownMemberId);
+    // ─── ขั้นที่ 2: LLM extract context ─────────────────
+    // เรียก LLM เฉพาะข้อความที่ NLP ยืนยันว่าเกี่ยวกับการลา
+    const result = await extractLeaveContextWithLLM(text, '', knownMemberId);
+    if (!result || result.action === 'none') continue;
 
-    if (result && result.action !== 'none') {
-      const finalId = result.memberId || knownMemberId;
-      if (finalId) {
-        let status = result.status;
-        if (status === 'leave' || status === 'absent') {
-          const leaveDate = extractLeaveDateFromText(text);
-          if (leaveDate) {
-            const today = new Date().toISOString().slice(0, 10);
-            if (leaveDate > today) {
-              status = `leave_advance:${leaveDate}`;
-            }
-          }
+    const finalId = result.memberId || knownMemberId;
+    if (!finalId) continue;
+
+    if (result.action === 'leave_advance' && result.startDate) {
+      const endDate = result.endDate || result.startDate;
+      await updateSheet(finalId, `leave_advance:${result.startDate}:${endDate}`);
+
+    } else if (result.action === 'cancel' || result.status === 'present') {
+      await updateSheet(finalId, 'present');
+
+    } else if (result.status) {
+      let status = result.status;
+      // safety check: ถ้า LLM บอก leave แต่ข้อความมีวันอนาคต → แก้ให้ถูก
+      if (status === 'leave' || status === 'absent') {
+        const thaiToday = new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const leaveDate = extractLeaveDateFromText(text);
+        if (leaveDate && leaveDate > thaiToday) {
+          status = `leave_advance:${leaveDate}:${leaveDate}`;
         }
-        await updateSheet(finalId, status);
       }
+      await updateSheet(finalId, status);
     }
   }
 
