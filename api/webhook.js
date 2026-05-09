@@ -30,7 +30,19 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา'];
+const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
+
+const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
+const LEAVE_WORDS  = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
+
+// ถ้ารู้จักผู้ส่งแล้ว ใช้ keyword matching แทน AI
+function quickDetect(text, memberId) {
+  if (CANCEL_WORDS.some(w => text.includes(w)))
+    return { action: 'cancel', memberId, status: 'present' };
+  if (LEAVE_WORDS.some(w => text.includes(w)))
+    return { action: 'leave', memberId, status: 'leave' };
+  return null;
+}
 
 function verifySignature(rawBody, signature) {
   const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(rawBody).digest('base64');
@@ -239,7 +251,10 @@ export default async function handler(req, res) {
     const hasTrigger = TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
 
-    const result = await analyzeWithGemini(text, '', knownMemberId);
+    // ถ้ารู้จักผู้ส่งแล้ว → keyword matching ทันที ไม่ต้องรอ AI
+    let result = knownMemberId ? quickDetect(text, knownMemberId) : null;
+    // ไม่รู้จัก หรือ keyword ไม่ชัด → ใช้ AI
+    if (!result) result = await analyzeWithGemini(text, '', knownMemberId);
 
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
