@@ -1224,14 +1224,15 @@ function openSkillModal(id) {
   const s = staff.find(x => x.id === id);
   if (!s) return;
   const skills = s.skills || {};
-  const skillHtml = Object.entries(SKILL_ICONS)
-    .filter(([k]) => skills[k])
-    .map(([k, icon]) =>
-      `<div class="skill-item on">
+  const skillHtml = Object.entries(skills)
+    .filter(([k, v]) => v)
+    .map(([k]) => {
+      const icon = SKILL_ICONS[k] || '🔧';
+      return `<div class="skill-item on">
         <span class="skill-icon">${icon}</span>
         <span class="skill-label">${k}</span>
-      </div>`
-    ).join('') || '<div style="color:#94a3b8;font-size:0.82rem;grid-column:1/-1;">ไม่มีสกิลที่บันทึกไว้</div>';
+      </div>`;
+    }).join('') || '<div style="color:#94a3b8;font-size:0.82rem;grid-column:1/-1;">ไม่มีสกิลที่บันทึกไว้</div>';
   const photoHtml = PHOTOS[s.name]
     ? `<img class="skill-modal-photo" src="${PHOTOS[s.name]}" alt="${s.name}">`
     : avatarEl(s.name, 96);
