@@ -30,7 +30,8 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-const TRIGGER_WORDS = ['ลา', 'ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า', 'พรุ่งนี้'];
+const TRIGGER_WORDS = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า', 'พรุ่งนี้'];
+const LEAVE_RE = /ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา|(?:^|[\s])ลา(?![ก-ฮ])/m;
 
 // สกัดวันที่จากข้อความ รองรับ "พรุ่งนี้" และ "วันที่ X"
 function extractLeaveDateFromText(text) {
@@ -257,7 +258,7 @@ export default async function handler(req, res) {
     }
 
     // กรองเฉพาะข้อความที่เกี่ยวกับการลา
-    const hasTrigger = TRIGGER_WORDS.some(w => text.includes(w));
+    const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
 
     const result = await analyzeWithGemini(text, '', knownMemberId);
