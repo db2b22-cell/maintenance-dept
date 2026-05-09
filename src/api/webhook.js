@@ -3,8 +3,8 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const THAILLM_API_KEY = 'Bkz8utfd1YWQe0SBkuVzubDprXoWId1X';
-const THAILLM_URL = 'https://thaillm.or.th/api/v1/chat/completions';
+const THAILLM_API_KEY = 'float16-AG0F8yNce5s1DiXm1ujcNrTaZquEdaikLwhZBRhyZQNeS7Dv0X';
+const THAILLM_URL = 'https://api.float16.cloud/dedicate/78y8fJLuzE/v1/chat/completions';
 
 // ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
 export const config = {
@@ -169,7 +169,7 @@ ${senderInfo}
         'Authorization': `Bearer ${THAILLM_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'openthaigpt',
+        model: 'openthaigpt/openthaigpt1.5-7b-instruct',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 200,
         temperature: 0
@@ -271,9 +271,9 @@ export default async function handler(req, res) {
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
 
-    // keyword matching อย่างเดียว ไม่ใช้ AI
-    if (!knownMemberId) continue;
-    const result = quickDetect(text, knownMemberId);
+    // keyword matching ก่อน ถ้าไม่ชัด → ใช้ AI
+    let result = knownMemberId ? quickDetect(text, knownMemberId) : null;
+    if (!result) result = await analyzeWithGemini(text, '', knownMemberId);
 
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
