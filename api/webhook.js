@@ -230,6 +230,8 @@ export default async function handler(req, res) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
     const replyToken = event.replyToken;
+    console.log(`[DEBUG] text="${text}" hex=${[...text].map(c=>c.codePointAt(0).toString(16)).join(',')} LEAVE_RE=${/(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/.test(text)}`);
+
 
     // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
     const registerMatch = text.match(/^ฉัน\s+(.+)$/);
