@@ -6,9 +6,11 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8To
 const THAILLM_API_KEY = 'Bkz8utfd1YWQe0SBkuVzubDprXoWId1X';
 const THAILLM_URL = 'https://thaillm.or.th/api/v1/chat/completions';
 
-// URL ของ NLP Classifier Server (WangchanBERTa บน Google Colab + ngrok)
-// ตั้งค่าใน Vercel Environment Variables: NLP_CLASSIFIER_URL
-const NLP_CLASSIFIER_URL = process.env.NLP_CLASSIFIER_URL || '';
+// NLP Classifier รันใน Vercel เดียวกัน (/api/nlp) ไม่ต้องมี server แยก
+// VERCEL_URL ถูกตั้งโดย Vercel อัตโนมัติ
+const NLP_BASE_URL = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'http://localhost:3000';
 
 export const config = {
   api: {
@@ -33,30 +35,24 @@ const MEMBERS = [
   { id: 14, names: ['ณัฐพงษ์', 'ยะล้อม', 'ไมค์', 'nattapong'] },
 ];
 
-// ─── ขั้นที่ 1: Thai NLP Classifier (WangchanBERTa) ──────────────────────────
-// เรียก inference server ที่ run บน Google Colab
+// ─── ขั้นที่ 1: Thai NLP Classifier (char TF-IDF + SVM) ─────────────────────
+// เรียก /api/nlp ซึ่งรันใน Vercel เดียวกัน — ไม่ต้องมี server แยก
 // คืนค่า true = เกี่ยวกับการลา → ส่งต่อให้ LLM
 // คืนค่า false = ข้อความทั่วไป → หยุดที่นี่ (ประหยัด LLM token)
 async function classifyWithNLP(text) {
-  if (!NLP_CLASSIFIER_URL) {
-    // ถ้ายังไม่ได้ตั้งค่า NLP server ให้ fallback ไปใช้ broad regex
-    console.warn('[NLP] NLP_CLASSIFIER_URL not set, using regex fallback');
-    return LEAVE_BROAD_RE.test(text);
-  }
-
   try {
-    const res = await fetch(`${NLP_CLASSIFIER_URL}/predict`, {
+    const res = await fetch(`${NLP_BASE_URL}/api/nlp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(3000), // timeout 3s ไม่ให้ block
+      signal: AbortSignal.timeout(2000),
     });
     const data = await res.json();
     console.log(`[NLP] "${text}" → is_leave=${data.is_leave} conf=${data.confidence}`);
     return data.is_leave === true;
   } catch (e) {
-    // NLP server ไม่ตอบ (Colab หยุด ฯลฯ) → fallback regex
-    console.warn('[NLP] classifier unavailable, using regex fallback:', e.message);
+    // fallback regex ถ้า /api/nlp ไม่ตอบ
+    console.warn('[NLP] fallback to regex:', e.message);
     return LEAVE_BROAD_RE.test(text);
   }
 }
