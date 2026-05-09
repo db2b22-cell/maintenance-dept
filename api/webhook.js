@@ -230,10 +230,6 @@ export default async function handler(req, res) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
     const replyToken = event.replyToken;
-    const _re = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/.test(text);
-    const _tw = TRIGGER_WORDS.some(w => text.includes(w));
-    await replyMessage(replyToken, `DEBUG: "${text}" | RE:${_re} TW:${_tw} trigger:${_re||_tw}`);
-
 
     // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
     const registerMatch = text.match(/^ฉัน\s+(.+)$/);
