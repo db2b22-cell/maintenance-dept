@@ -32,6 +32,16 @@ const MEMBERS = [
 
 const TRIGGER_WORDS = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ล่วงหน้า', 'พรุ่งนี้'];
 const LEAVE_RE = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/;
+const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
+const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
+
+function quickDetect(text, memberId) {
+  if (CANCEL_WORDS.some(w => text.includes(w)))
+    return { action: 'cancel', memberId, status: 'present' };
+  if (LEAVE_RE.test(text) || LEAVE_WORDS.some(w => text.includes(w)))
+    return { action: 'leave', memberId, status: 'leave' };
+  return null;
+}
 
 // สกัดวันที่จากข้อความ รองรับ "พรุ่งนี้" และ "วันที่ X"
 function extractLeaveDateFromText(text) {
@@ -261,27 +271,22 @@ export default async function handler(req, res) {
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
 
-    const result = await analyzeWithGemini(text, '', knownMemberId);
+    // keyword matching อย่างเดียว ไม่ใช้ AI
+    if (!knownMemberId) continue;
+    const result = quickDetect(text, knownMemberId);
 
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
-        if (result.action === 'leave_advance' && result.startDate) {
-          const endDate = result.endDate || result.startDate;
-          const status = `leave_advance:${result.startDate}:${endDate}`;
-          await updateSheet(finalId, status);
-        } else if (result.status) {
-          // Fallback: ถ้า LLM บอกว่า leave แต่ข้อความมีวันในอนาคต → เปลี่ยนเป็น leave_advance
-          let status = result.status;
-          if (status === 'leave' || status === 'absent') {
-            const thaiToday = new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-            const leaveDate = extractLeaveDateFromText(text);
-            if (leaveDate && leaveDate > thaiToday) {
-              status = `leave_advance:${leaveDate}:${leaveDate}`;
-            }
+        let status = result.status;
+        if (status === 'leave' || status === 'absent') {
+          const thaiToday = new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const leaveDate = extractLeaveDateFromText(text);
+          if (leaveDate && leaveDate > thaiToday) {
+            status = `leave_advance:${leaveDate}:${leaveDate}`;
           }
-          await updateSheet(finalId, status);
         }
+        await updateSheet(finalId, status);
       }
     }
   }
