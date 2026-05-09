@@ -1220,10 +1220,7 @@ const SKILL_ICONS = {
   'ขับโฟล์คลิฟท์': '🚜',
   'ขับบุมลิฟท์': '🏗️'
 };
-function openSkillModal(id) {
-  const s = staff.find(x => x.id === id);
-  if (!s) return;
-  const skills = s.skills || {};
+function renderSkillModal(s, skills) {
   const skillHtml = Object.entries(skills)
     .filter(([k, v]) => v)
     .map(([k]) => {
@@ -1243,7 +1240,33 @@ function openSkillModal(id) {
     <div class="skill-grid">${skillHtml}</div>
     <button class="skill-edit-btn" onclick="closeSkillModal();openEditModal(${s.id})">✏️ แก้ไขข้อมูล</button>
   `;
+}
+async function openSkillModal(id) {
+  const s = staff.find(x => x.id === id);
+  if (!s) return;
   document.getElementById('skillModal').classList.add('open');
+  // Show loading state first
+  const photoHtml = PHOTOS[s.name]
+    ? `<img class="skill-modal-photo" src="${PHOTOS[s.name]}" alt="${s.name}">`
+    : avatarEl(s.name, 96);
+  document.getElementById('skillModalContent').innerHTML = `
+    ${photoHtml}
+    <div class="skill-modal-name">${s.name}</div>
+    <div class="skill-modal-role">${s.role}</div>
+    <div style="color:#94a3b8;font-size:0.82rem;margin:16px 0;">⏳ กำลังโหลด...</div>
+  `;
+  // Always fetch fresh skills directly from Apps Script
+  try {
+    const res = await fetch(SCRIPT_URL + '?_=' + Date.now());
+    const data = await res.json();
+    const found = Array.isArray(data) ? data.find(x => x.id === id) : null;
+    const skills = (found && found.skills) ? found.skills : (s.skills || {});
+    // Cache into staff
+    s.skills = skills;
+    renderSkillModal(s, skills);
+  } catch(e) {
+    renderSkillModal(s, s.skills || {});
+  }
 }
 function closeSkillModal() { document.getElementById('skillModal').classList.remove('open'); }
 function saveStaff() {
