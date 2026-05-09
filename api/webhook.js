@@ -95,6 +95,9 @@ async function analyzeWithGemini(text, senderName, knownMemberId) {
     ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
     : `ผู้ส่ง: "${senderName}"`;
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [ty, tm] = todayIso.split('-');
+
   const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
 
 รายชื่อสมาชิก:
@@ -102,13 +105,17 @@ ${memberList}
 
 ${senderInfo}
 ข้อความ: "${text}"
+วันที่วันนี้: ${todayIso}
 
 วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
 - ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
 - ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
+- leaveDate: ถ้ามีระบุวันที่ลาให้แปลงเป็น YYYY-MM-DD เช่น "15/05/2026" → "2026-05-15"
+  ถ้าระบุแค่วันที่ (เช่น "วันที่ 15") ให้ใช้เดือนและปีปัจจุบัน (${ty}-${tm}-DD)
+  ถ้าไม่ระบุวันที่ ให้ leaveDate เป็น null
 
 ตอบ JSON เท่านั้น:
-ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
+ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>","leaveDate":"<YYYY-MM-DD หรือ null>"}
 ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
 ไม่เกี่ยว: {"action":"none"}`;
 
@@ -227,7 +234,14 @@ export default async function handler(req, res) {
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
-        await updateSheet(finalId, result.status);
+        let status = result.status;
+        if (result.leaveDate && (status === 'leave' || status === 'absent')) {
+          const today = new Date().toISOString().slice(0, 10);
+          if (result.leaveDate > today) {
+            status = `leave_advance:${result.leaveDate}`;
+          }
+        }
+        await updateSheet(finalId, status);
       }
     }
   }

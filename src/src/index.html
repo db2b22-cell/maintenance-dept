@@ -942,6 +942,17 @@ function formatThaiDate(isoDate) {
   return d + ' ' + months[+m] + ' ' + (+y+543);
 }
 
+function formatDateFull(isoDate) {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return d.padStart(2,'0') + '/' + m.padStart(2,'0') + '/' + y;
+}
+
+function formatDateFullRange(startIso, endIso) {
+  if (!endIso || endIso === startIso) return formatDateFull(startIso);
+  return formatDateFull(startIso) + ' - ' + formatDateFull(endIso);
+}
+
 function formatThaiDateRange(startIso, endIso) {
   if (!endIso || endIso === startIso) return formatThaiDate(startIso);
   const [sy,sm,sd] = startIso.split('-');
@@ -1135,7 +1146,7 @@ function renderAll() {
         card.className = cardCls;
         card.onclick = () => openEditModal(s.id);
         const advanceBadge = ps.advanceDate
-          ? `<span class="status-badge status-leave-advance">📅 ลาล่วงหน้า ${formatThaiDateRange(ps.advanceDate, ps.advanceEnd)}</span>`
+          ? `<span class="status-badge status-leave-advance">ลา วันที่ ${formatDateFullRange(ps.advanceDate, ps.advanceEnd)}</span>`
           : '';
         card.innerHTML = `
           ${avatarEl(s.name)}
