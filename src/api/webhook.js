@@ -239,11 +239,6 @@ export default async function handler(req, res) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
     const replyToken = event.replyToken;
-    const _reHex = [...text].map(c=>c.codePointAt(0).toString(16)).join(',');
-    const _reTst = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/.test(text);
-    const _twTst = TRIGGER_WORDS.some(w => text.includes(w));
-    console.log(`[SRC-DEBUG] text="${text}" hex=${_reHex} LEAVE_RE=${_reTst} TRIGGER=${_twTst} hasTrigger=${_reTst||_twTst}`);
-    await replyMessage(replyToken, `DEBUG: "${text}" | RE:${_reTst} TW:${_twTst}`);
 
     // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
     const registerMatch = text.match(/^ฉัน\s+(.+)$/);
