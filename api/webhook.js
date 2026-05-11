@@ -262,6 +262,12 @@ export default async function handler(req, res) {
     const userId = event.source.userId;
 
     // Handle media BEFORE member lookup to save time
+    // ข้ามวีดีโอ - ไม่บันทึกลง OneDrive
+    if (msgType === 'video') {
+      console.log(`[SKIP] Video message skipped: ${messageId}`);
+      continue;
+    }
+
     if (msgType === 'image') {
       await saveMediaToOneDrive(messageId, 'image', null);
       continue;
