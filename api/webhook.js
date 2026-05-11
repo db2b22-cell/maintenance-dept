@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
-const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1O/w1cDnyilFU=';
+const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1o/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
 const THAILLM_API_KEY = 'float16-AG0F8yNce5s1DiXm1ujcNrTaZquEdaikLwhZBRhyZQNeS7Dv0X';
 const THAILLM_URL = 'https://api.float16.cloud/dedicate/78y8fJLuzE/v1/chat/completions';
+const ONEDRIVE_CONNECTION_ID = '0e22b506-e1c8-44fb-af9f-19ef2538a6a4';
 
 // ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
 export const config = {
@@ -36,7 +37,6 @@ const LEAVE_RE = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก
 const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
 const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
 
-// ถ้ารู้จักผู้ส่งแล้ว ใช้ keyword matching แทน AI
 function quickDetect(text, memberId) {
   if (CANCEL_WORDS.some(w => text.includes(w)))
     return { action: 'cancel', memberId, status: 'present' };
@@ -102,17 +102,14 @@ async function saveUserToSheets(userId, displayName, memberId) {
   } catch (e) {}
 }
 
-// สกัดวันที่จากข้อความด้วย regex (ไม่พึ่ง AI)
 function extractLeaveDateFromText(text) {
   const now = new Date();
   const ty = now.getFullYear().toString();
   const tm = String(now.getMonth() + 1).padStart(2, '0');
 
-  // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
   let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
 
-  // รูปแบบ "พรุ่งนี้"
   if (/พรุ่งนี้/.test(text)) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -122,7 +119,6 @@ function extractLeaveDateFromText(text) {
     return `${ty2}-${tm2}-${td2}`;
   }
 
-  // รูปแบบ "วันที่ 15" หรือ "วันที15" → ใช้เดือน/ปีปัจจุบัน
   m = text.match(/วันที่?\s*(\d{1,2})/);
   if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
 
@@ -203,10 +199,43 @@ async function replyMessage(replyToken, text) {
   } catch (e) {}
 }
 
+async function saveToOneDrive(text, senderName) {
+  try {
+    const now = new Date();
+    const thNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const dateStr = thNow.toISOString().slice(0, 10);
+    const timeStr = thNow.toISOString().slice(11, 16);
+
+    const filePath = `/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md`;
+    const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${filePath}:/content`;
+    const headers = {
+      'Authorization': `Bearer ${process.env.MATON_API_KEY}`,
+      'Maton-Connection': ONEDRIVE_CONNECTION_ID
+    };
+
+    let existingContent = '';
+    const getRes = await fetch(fileUrl, { headers });
+    if (getRes.ok) {
+      existingContent = await getRes.text();
+    } else {
+      existingContent = `# LINE Log - ${dateStr}\n\n`;
+    }
+
+    const newLine = `## ${timeStr} - ${senderName}\n${text}\n\n`;
+    await fetch(fileUrl, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'text/plain' },
+      body: existingContent + newLine
+    });
+    console.log(`[ONEDRIVE] Saved message from ${senderName}`);
+  } catch (e) {
+    console.error('[ONEDRIVE] Error:', e.message);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // อ่าน raw body ก่อนแปลง JSON เพื่อ verify signature ถูกต้อง
   const rawBody = await readRawBody(req);
   const signature = req.headers['x-line-signature'];
 
@@ -257,6 +286,10 @@ export default async function handler(req, res) {
         }
       }
     }
+
+    // บันทึกทุกข้อความลง OneDrive
+    const memberForLog = MEMBERS.find(m => m.id === knownMemberId);
+    saveToOneDrive(text, memberForLog ? memberForLog.names[0] : userId);
 
     // กรองเฉพาะข้อความที่เกี่ยวกับการลา
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
