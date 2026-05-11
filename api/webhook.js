@@ -143,17 +143,12 @@ function getExtension(contentType, fileName) {
     if (dot !== -1) return fileName.slice(dot);
   }
   const map = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'application/pdf': '.pdf',
-    'application/msword': '.doc',
+    'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
+    'application/pdf': '.pdf', 'application/msword': '.doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     'application/vnd.ms-excel': '.xls',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-    'audio/m4a': '.m4a',
-    'audio/mpeg': '.mp3',
+    'audio/m4a': '.m4a', 'audio/mpeg': '.mp3',
   };
   return map[contentType] || '.bin';
 }
@@ -195,9 +190,8 @@ async function saveToOneDrive(text, senderName, mediaRef) {
 
 async function saveMediaToOneDrive(messageId, messageType, fileName, senderName) {
   try {
-    const { dateStr, timeStr } = getThaiNow();
+    const { dateStr } = getThaiNow();
 
-    // Download from LINE
     const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
     });
@@ -208,7 +202,6 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, senderName)
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
     const buffer = await lineRes.arrayBuffer();
 
-    // Upload to OneDrive
     const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${dateStr}/${finalFileName}`;
     const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
 
@@ -219,7 +212,6 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, senderName)
     });
     console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
 
-    // Log reference in daily .md
     const isImage = messageType === 'image';
     const mediaRef = isImage
       ? `![[LINE-Media/${dateStr}/${finalFileName}]]`
@@ -258,7 +250,6 @@ export default async function handler(req, res) {
     const messageId = event.message.id;
     const userId = event.source.userId;
 
-    // ดึง memberId จาก cache
     let knownMemberId = await getMemberIdFromSheets(userId);
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, event.source);
@@ -274,20 +265,19 @@ export default async function handler(req, res) {
     const memberForLog = MEMBERS.find(m => m.id === knownMemberId);
     const senderName = memberForLog ? memberForLog.names[0] : userId;
 
-    // === รูปภาพ ===
+    // รูปภาพ
     if (msgType === 'image') {
-      saveMediaToOneDrive(messageId, 'image', null, senderName);
+      await saveMediaToOneDrive(messageId, 'image', null, senderName);
       continue;
     }
 
-    // === ไฟล์ (PDF, Word, Excel ฯลฯ) ===
+    // ไฟล์
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
-      saveMediaToOneDrive(messageId, 'file', fileName, senderName);
+      await saveMediaToOneDrive(messageId, 'file', fileName, senderName);
       continue;
     }
 
-    // === ข้อความ text เท่านั้น ===
     if (msgType !== 'text') continue;
 
     const text = event.message.text.trim();
@@ -304,8 +294,8 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // บันทึกข้อความลง OneDrive
-    saveToOneDrive(text, senderName, null);
+    // บันทึกข้อความลง OneDrive (await แทน fire-and-forget)
+    await saveToOneDrive(text, senderName, null);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
