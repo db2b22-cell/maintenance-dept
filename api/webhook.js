@@ -3,8 +3,6 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7MnoivSGZhTzNK/7jZHGkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw8M/uGn3HRCeAx2X1pQHr0cWjRbIkPIP1BVVp8EQNgxXAdB04t89/1o/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const THAILLM_API_KEY = 'float16-AG0F8yNce5s1DiXm1ujcNrTaZquEdaikLwhZBRhyZQNeS7Dv0X';
-const THAILLM_URL = 'https://api.float16.cloud/dedicate/78y8fJLuzE/v1/chat/completions';
 const ONEDRIVE_CONNECTION_ID = '5ede5238-487d-44f2-b146-3de025335451';
 
 export const config = {
@@ -188,36 +186,39 @@ async function saveToOneDrive(text, senderName, mediaRef) {
   }
 }
 
-async function saveMediaToOneDrive(messageId, messageType, fileName, senderName) {
+async function saveMediaToOneDrive(messageId, messageType, fileName) {
   try {
     const { dateStr } = getThaiNow();
 
+    // Download from LINE
     const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
     });
-    if (!lineRes.ok) return;
+    if (!lineRes.ok) {
+      console.error(`[LINE] Content fetch failed: ${lineRes.status} for ${messageId}`);
+      return;
+    }
 
     const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
     const ext = getExtension(contentType, fileName);
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
-    const buffer = await lineRes.arrayBuffer();
 
     const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${dateStr}/${finalFileName}`;
     const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
 
-    await fetch(mediaUrl, {
+    // Stream directly from LINE to OneDrive (no buffer needed)
+    const upRes = await fetch(mediaUrl, {
       method: 'PUT',
       headers: { ...oneDriveHeaders(), 'Content-Type': contentType },
-      body: buffer
+      body: lineRes.body,
+      duplex: 'half',
     });
-    console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
 
-    const isImage = messageType === 'image';
-    const mediaRef = isImage
-      ? `![[LINE-Media/${dateStr}/${finalFileName}]]`
-      : `📎 [${finalFileName}](../LINE-Media/${dateStr}/${finalFileName})`;
-
-    await saveToOneDrive(null, senderName, mediaRef);
+    if (upRes.ok) {
+      console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
+    } else {
+      console.error(`[ONEDRIVE] Upload failed: ${upRes.status} for ${finalFileName}`);
+    }
   } catch (e) {
     console.error('[ONEDRIVE] Media Error:', e.message);
   }
@@ -250,6 +251,21 @@ export default async function handler(req, res) {
     const messageId = event.message.id;
     const userId = event.source.userId;
 
+    // Handle media first — skip member lookup to stay within Vercel's 10s limit
+    if (msgType === 'image') {
+      await saveMediaToOneDrive(messageId, 'image', null);
+      continue;
+    }
+
+    if (msgType === 'file') {
+      const fileName = event.message.fileName || null;
+      await saveMediaToOneDrive(messageId, 'file', fileName);
+      continue;
+    }
+
+    if (msgType !== 'text') continue;
+
+    // Member lookup only for text messages
     let knownMemberId = await getMemberIdFromSheets(userId);
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, event.source);
@@ -265,21 +281,6 @@ export default async function handler(req, res) {
     const memberForLog = MEMBERS.find(m => m.id === knownMemberId);
     const senderName = memberForLog ? memberForLog.names[0] : userId;
 
-    // รูปภาพ
-    if (msgType === 'image') {
-      await saveMediaToOneDrive(messageId, 'image', null, senderName);
-      continue;
-    }
-
-    // ไฟล์
-    if (msgType === 'file') {
-      const fileName = event.message.fileName || null;
-      await saveMediaToOneDrive(messageId, 'file', fileName, senderName);
-      continue;
-    }
-
-    if (msgType !== 'text') continue;
-
     const text = event.message.text.trim();
 
     // ระบบลงทะเบียน
@@ -294,7 +295,6 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // บันทึกข้อความลง OneDrive (await แทน fire-and-forget)
     await saveToOneDrive(text, senderName, null);
 
     // ตรวจการลางาน
