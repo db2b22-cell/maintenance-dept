@@ -4,6 +4,7 @@ const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = 'zAxex+H02fBeebm6uRsJz4gYYxWk7Jxpxa+w2Hzc5XYLEFBxT1CCXT/IFkC+TYb8GkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw/rE6xOdsnYVA7P+wFbt/c7/v8hHXXE1IAYyp+i86mUOgdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
 const ONEDRIVE_CONNECTION_ID = '5ede5238-487d-44f2-b146-3de025335451';
+const MY_MEMBER_ID = 6; // อุดมชัย - ข้อความจะอยู่ขวา
 
 export const config = {
   api: {
@@ -156,37 +157,66 @@ const oneDriveHeaders = () => ({
   'Maton-Connection': ONEDRIVE_CONNECTION_ID,
 });
 
-async function saveToOneDrive(text, senderName, mediaRef) {
+async function ensureProfilePic(userId, senderName) {
+  try {
+    const picPath = `/Apps/remotely-save/Makatoon/LINE-Profiles/${senderName}.jpg`;
+    const checkUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${picPath}:/content`;
+    const check = await fetch(checkUrl, { headers: oneDriveHeaders() });
+    if (check.ok) return; // มีอยู่แล้ว
+    const profile = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+    });
+    if (!profile.ok) return;
+    const { pictureUrl } = await profile.json();
+    if (!pictureUrl) return;
+    const imgRes = await fetch(pictureUrl);
+    if (!imgRes.ok) return;
+    const buf = await imgRes.arrayBuffer();
+    await fetch(checkUrl, {
+      method: 'PUT',
+      headers: { ...oneDriveHeaders(), 'Content-Type': 'image/jpeg' },
+      body: buf,
+    });
+  } catch (e) {}
+}
+
+async function appendToLog(dateStr, htmlBlock) {
+  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md:/content`;
+  const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
+  const existing = getRes.ok ? await getRes.text() : `<div class="lc">\n`;
+  await fetch(fileUrl, {
+    method: 'PUT',
+    headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
+    body: existing + htmlBlock
+  });
+}
+
+async function saveToOneDrive(text, senderName, memberId, userId) {
   try {
     const { dateStr, timeStr } = getThaiNow();
-    const filePath = `/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md`;
-    const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${filePath}:/content`;
+    const isMe = memberId === MY_MEMBER_ID;
+    const side = isMe ? 'right' : 'left';
+    const av = `LINE-Profiles/${senderName}.jpg`;
 
-    let existingContent = '';
-    const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
-    if (getRes.ok) {
-      existingContent = await getRes.text();
-    } else {
-      existingContent = `# LINE Log - ${dateStr}\n\n`;
-    }
+    if (userId) await ensureProfilePic(userId, senderName);
 
-    let newLine = `## ${timeStr} - ${senderName}\n`;
-    if (text) newLine += `${text}\n`;
-    if (mediaRef) newLine += `${mediaRef}\n`;
-    newLine += '\n';
+    let bubble = '';
+    if (text) bubble += `<span class="ct">${text}</span>`;
+    bubble += `<span class="ts">${timeStr}</span>`;
 
-    await fetch(fileUrl, {
-      method: 'PUT',
-      headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
-      body: existingContent + newLine
-    });
+    let html = `<div class="cm ${side}">`;
+    if (!isMe) html += `<img class="av" src="${av}"><div class="bub"><b class="nm">${senderName}</b><br>${bubble}</div>`;
+    else html += `<div class="bub">${bubble}</div><img class="av" src="${av}">`;
+    html += `</div>\n`;
+
+    await appendToLog(dateStr, html);
     console.log(`[ONEDRIVE] Saved log from ${senderName}`);
   } catch (e) {
     console.error('[ONEDRIVE] Log Error:', e.message);
   }
 }
 
-async function saveMediaToOneDrive(messageId, messageType, fileName) {
+async function saveMediaToOneDrive(messageId, messageType, fileName, userId) {
   try {
     const { dateStr, timeStr } = getThaiNow();
 
@@ -213,18 +243,30 @@ async function saveMediaToOneDrive(messageId, messageType, fileName) {
       body: buffer,
     });
 
-    // Log with Obsidian image link
-    const logUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md:/content`;
-    const getRes = await fetch(logUrl, { headers: oneDriveHeaders() });
-    const existing = getRes.ok ? await getRes.text() : `# LINE Log - ${dateStr}\n\n`;
-    const mediaLine = upRes.ok
-      ? `## ${timeStr}\n![[LINE-Media/${dateStr}/${finalFileName}]]\n\n`
-      : `## ${timeStr} - [${messageType} upload failed: ${messageId}]\n\n`;
-    await fetch(logUrl, {
-      method: 'PUT',
-      headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
-      body: existing + mediaLine
-    });
+    // Look up member for this userId
+    let mediaMemberId = await getMemberIdFromSheets(userId).catch(() => null);
+    if (!mediaMemberId) {
+      const dn = await getLineDisplayName(userId, { type: 'group', groupId: '' }).catch(() => null);
+      if (dn) { const m = findMemberByName(dn); if (m) mediaMemberId = m.id; }
+    }
+    const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
+    const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
+    const isMe = mediaMemberId === MY_MEMBER_ID;
+    const side = isMe ? 'right' : 'left';
+    const av = `LINE-Profiles/${mediaSender}.jpg`;
+    if (userId) await ensureProfilePic(userId, mediaSender);
+
+    let html = '';
+    if (upRes.ok) {
+      const imgTag = `<img src="LINE-Media/${dateStr}/${finalFileName}" class="ci"><span class="ts">${timeStr}</span>`;
+      html = `<div class="cm ${side}">`;
+      if (!isMe) html += `<img class="av" src="${av}"><div class="bub"><b class="nm">${mediaSender}</b><br>${imgTag}</div>`;
+      else html += `<div class="bub">${imgTag}</div><img class="av" src="${av}">`;
+      html += `</div>\n`;
+    } else {
+      html = `<div class="cm left"><div class="bub"><span class="ts">${timeStr}</span> [upload failed]</div></div>\n`;
+    }
+    await appendToLog(dateStr, html);
 
     if (upRes.ok) {
       console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
@@ -272,13 +314,13 @@ export default async function handler(req, res) {
     }
 
     if (msgType === 'image') {
-      await saveMediaToOneDrive(messageId, 'image', null);
+      await saveMediaToOneDrive(messageId, 'image', null, userId);
       continue;
     }
 
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
-      await saveMediaToOneDrive(messageId, 'file', fileName);
+      await saveMediaToOneDrive(messageId, 'file', fileName, userId);
       continue;
     }
 
@@ -314,7 +356,7 @@ export default async function handler(req, res) {
       continue;
     }
 
-    await saveToOneDrive(text, senderName, null);
+    await saveToOneDrive(text, senderName, knownMemberId, userId);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
