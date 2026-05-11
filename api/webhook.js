@@ -188,7 +188,17 @@ async function saveToOneDrive(text, senderName, mediaRef) {
 
 async function saveMediaToOneDrive(messageId, messageType, fileName) {
   try {
-    const { dateStr } = getThaiNow();
+    const { dateStr, timeStr } = getThaiNow();
+
+    // Log that we received this media event (for debugging)
+    const logUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md:/content`;
+    const getRes = await fetch(logUrl, { headers: oneDriveHeaders() });
+    const existing = getRes.ok ? await getRes.text() : `# LINE Log - ${dateStr}\n\n`;
+    await fetch(logUrl, {
+      method: 'PUT',
+      headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
+      body: existing + `## ${timeStr} - [${messageType} received: ${messageId}]\n\n`
+    });
 
     // Download from LINE as buffer
     const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
