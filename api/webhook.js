@@ -5,7 +5,7 @@ const CHANNEL_ACCESS_TOKEN = '9UBzhgK+eli/utMHi1KicoF9Okr0IzxDGJuyme9qPHQrP7Mnoi
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
 const THAILLM_API_KEY = 'float16-AG0F8yNce5s1DiXm1ujcNrTaZquEdaikLwhZBRhyZQNeS7Dv0X';
 const THAILLM_URL = 'https://api.float16.cloud/dedicate/78y8fJLuzE/v1/chat/completions';
-const ONEDRIVE_CONNECTION_ID = '0e22b506-e1c8-44fb-af9f-19ef2538a6a4';
+const ONEDRIVE_CONNECTION_ID = '5ede5238-487d-44f2-b146-3de025335451';
 
 export const config = {
   api: {
