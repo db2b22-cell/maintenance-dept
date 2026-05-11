@@ -3,7 +3,7 @@
 $MATON_API_KEY = $env:MATON_API_KEY   # <-- Or replace with your key: "mk_xxx..."
 $ONEDRIVE_CONNECTION_ID = "5ede5238-487d-44f2-b146-3de025335451"
 $ONEDRIVE_MEDIA_PATH = "/Apps/remotely-save/Makatoon/LINE-Media"
-$LOCAL_SAVE_PATH = "C:\script\LINE-Media"   # <-- Change this path
+$LOCAL_SAVE_PATH = "D:\1.Makatoon\Makatoon\LINE-Media"
 
 $SKIP_EXT = @(".mp4",".mov",".avi",".mkv",".m4v",".wmv",".flv",".webm")
 
