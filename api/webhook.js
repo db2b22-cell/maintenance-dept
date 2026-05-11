@@ -190,34 +190,34 @@ async function saveMediaToOneDrive(messageId, messageType, fileName) {
   try {
     const { dateStr } = getThaiNow();
 
-    // Download from LINE
+    // Download from LINE as buffer
     const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
     });
     if (!lineRes.ok) {
-      console.error(`[LINE] Content fetch failed: ${lineRes.status} for ${messageId}`);
+      console.error(`[LINE] Content fetch failed: ${lineRes.status} msgId=${messageId}`);
       return;
     }
 
     const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
     const ext = getExtension(contentType, fileName);
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
+    const buffer = await lineRes.arrayBuffer();
 
     const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${dateStr}/${finalFileName}`;
     const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
 
-    // Stream directly from LINE to OneDrive (no buffer needed)
     const upRes = await fetch(mediaUrl, {
       method: 'PUT',
       headers: { ...oneDriveHeaders(), 'Content-Type': contentType },
-      body: lineRes.body,
-      duplex: 'half',
+      body: buffer,
     });
 
     if (upRes.ok) {
       console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
     } else {
-      console.error(`[ONEDRIVE] Upload failed: ${upRes.status} for ${finalFileName}`);
+      const errText = await upRes.text().catch(() => '');
+      console.error(`[ONEDRIVE] Upload failed: ${upRes.status} ${errText.slice(0, 200)}`);
     }
   } catch (e) {
     console.error('[ONEDRIVE] Media Error:', e.message);
@@ -251,7 +251,7 @@ export default async function handler(req, res) {
     const messageId = event.message.id;
     const userId = event.source.userId;
 
-    // Handle media first — skip member lookup to stay within Vercel's 10s limit
+    // Handle media BEFORE member lookup to save time
     if (msgType === 'image') {
       await saveMediaToOneDrive(messageId, 'image', null);
       continue;
