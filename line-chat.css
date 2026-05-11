@@ -1,0 +1,86 @@
+/* LINE Chat Style for Obsidian */
+
+.markdown-preview-view .lc,
+.markdown-rendered .lc {
+  background: #1a1a2e;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+/* Chat message row */
+.cm {
+  display: flex;
+  align-items: flex-end;
+  margin: 6px 0;
+  gap: 8px;
+}
+
+/* Avatar */
+.av {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  flex-shrink: 0;
+}
+
+/* Bubble */
+.bub {
+  max-width: 65%;
+  padding: 8px 12px;
+  border-radius: 18px;
+  font-size: 0.9em;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Left (others) */
+.cm.left {
+  flex-direction: row;
+}
+.cm.left .bub {
+  background: #2e2e4e;
+  color: #e0e0e0;
+  border-bottom-left-radius: 4px;
+}
+
+/* Right (me) */
+.cm.right {
+  flex-direction: row-reverse;
+}
+.cm.right .bub {
+  background: #4caf82;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* Sender name */
+.nm {
+  font-size: 0.78em;
+  color: #aaa;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Message text */
+.ct {
+  display: block;
+}
+
+/* Timestamp */
+.ts {
+  font-size: 0.7em;
+  color: rgba(255,255,255,0.5);
+  display: block;
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* Chat image */
+.ci {
+  max-width: 200px !important;
+  max-height: 200px !important;
+  border-radius: 10px !important;
+  display: block;
+  margin: 4px 0;
+}
