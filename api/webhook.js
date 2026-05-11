@@ -7,7 +7,6 @@ const THAILLM_API_KEY = 'float16-AG0F8yNce5s1DiXm1ujcNrTaZquEdaikLwhZBRhyZQNeS7D
 const THAILLM_URL = 'https://api.float16.cloud/dedicate/78y8fJLuzE/v1/chat/completions';
 const ONEDRIVE_CONNECTION_ID = '0e22b506-e1c8-44fb-af9f-19ef2538a6a4';
 
-// ปิด body parser ของ Vercel เพื่อให้ได้ raw body สำหรับ signature verification
 export const config = {
   api: {
     bodyParser: false,
@@ -33,7 +32,6 @@ const MEMBERS = [
 
 const TRIGGER_WORDS = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'มาแล้ว', 'มาได้', 'ยกเลิกลา', 'หาหมอ', 'นัดหมอ', 'พบแพทย์', 'พรุ่งนี้'];
 const LEAVE_RE = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก่อน|นะ|ครับ|ค่ะ|วันที่|พรุ่งนี้|มะรืน|อาทิตย์|เดือน|วัน|ล่วงหน้า)|(?:ขอ|แจ้ง|ต้อง)ลา/;
-
 const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
 const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
 
@@ -113,66 +111,13 @@ function extractLeaveDateFromText(text) {
   if (/พรุ่งนี้/.test(text)) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const ty2 = tomorrow.getFullYear().toString();
-    const tm2 = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const td2 = String(tomorrow.getDate()).padStart(2, '0');
-    return `${ty2}-${tm2}-${td2}`;
+    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
   }
 
   m = text.match(/วันที่?\s*(\d{1,2})/);
   if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
 
   return null;
-}
-
-async function analyzeWithGemini(text, senderName, knownMemberId) {
-  const memberList = MEMBERS.map(m => `id=${m.id}: ${m.names.join('/')}`).join('\n');
-  const senderInfo = knownMemberId
-    ? `ผู้ส่ง: "${senderName}" (id=${knownMemberId})`
-    : `ผู้ส่ง: "${senderName}"`;
-
-  const prompt = `คุณคือระบบวิเคราะห์ข้อความในกลุ่มไลน์แผนกซ่อมบำรุง
-
-รายชื่อสมาชิก:
-${memberList}
-
-${senderInfo}
-ข้อความ: "${text}"
-
-วิเคราะห์ว่าเกี่ยวกับการลางานหรือไม่
-- ถ้าไม่ระบุชื่อ ให้ถือว่าผู้ส่งเป็นคนลาเอง
-- ถ้าระบุชื่อคนอื่น ให้ใช้ชื่อนั้น
-
-ตอบ JSON เท่านั้น:
-ลา/ป่วย/ไม่มา: {"action":"leave","memberId":<id>,"memberName":"<ชื่อ>","status":"<leave หรือ absent>"}
-ยกเลิกลา/มาแล้ว: {"action":"cancel","memberId":<id>,"memberName":"<ชื่อ>","status":"present"}
-ไม่เกี่ยว: {"action":"none"}`;
-
-  try {
-    const res = await fetch(THAILLM_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${THAILLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'openthaigpt/openthaigpt1.5-7b-instruct',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-        temperature: 0
-      })
-    });
-    const data = await res.json();
-    const rawText = data?.choices?.[0]?.message?.content || '';
-    const jsonMatch = rawText.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) return null;
-    const result = JSON.parse(jsonMatch[0]);
-    console.log(`[THAILLM] "${text}" → ${JSON.stringify(result)}`);
-    return result;
-  } catch (e) {
-    console.error('[THAILLM] Error:', e.message);
-    return null;
-  }
 }
 
 async function updateSheet(memberId, status) {
@@ -183,53 +128,106 @@ async function updateSheet(memberId, status) {
   } catch (e) {}
 }
 
-async function replyMessage(replyToken, text) {
-  try {
-    await fetch('https://api.line.me/v2/bot/message/reply', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        replyToken,
-        messages: [{ type: 'text', text }]
-      })
-    });
-  } catch (e) {}
+function getThaiNow() {
+  const now = new Date();
+  const thNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return {
+    dateStr: thNow.toISOString().slice(0, 10),
+    timeStr: thNow.toISOString().slice(11, 16),
+  };
 }
 
-async function saveToOneDrive(text, senderName) {
-  try {
-    const now = new Date();
-    const thNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const dateStr = thNow.toISOString().slice(0, 10);
-    const timeStr = thNow.toISOString().slice(11, 16);
+function getExtension(contentType, fileName) {
+  if (fileName) {
+    const dot = fileName.lastIndexOf('.');
+    if (dot !== -1) return fileName.slice(dot);
+  }
+  const map = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'audio/m4a': '.m4a',
+    'audio/mpeg': '.mp3',
+  };
+  return map[contentType] || '.bin';
+}
 
+const oneDriveHeaders = () => ({
+  'Authorization': `Bearer ${process.env.MATON_API_KEY}`,
+  'Maton-Connection': ONEDRIVE_CONNECTION_ID,
+});
+
+async function saveToOneDrive(text, senderName, mediaRef) {
+  try {
+    const { dateStr, timeStr } = getThaiNow();
     const filePath = `/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md`;
     const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${filePath}:/content`;
-    const headers = {
-      'Authorization': `Bearer ${process.env.MATON_API_KEY}`,
-      'Maton-Connection': ONEDRIVE_CONNECTION_ID
-    };
 
     let existingContent = '';
-    const getRes = await fetch(fileUrl, { headers });
+    const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
     if (getRes.ok) {
       existingContent = await getRes.text();
     } else {
       existingContent = `# LINE Log - ${dateStr}\n\n`;
     }
 
-    const newLine = `## ${timeStr} - ${senderName}\n${text}\n\n`;
+    let newLine = `## ${timeStr} - ${senderName}\n`;
+    if (text) newLine += `${text}\n`;
+    if (mediaRef) newLine += `${mediaRef}\n`;
+    newLine += '\n';
+
     await fetch(fileUrl, {
       method: 'PUT',
-      headers: { ...headers, 'Content-Type': 'text/plain' },
+      headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
       body: existingContent + newLine
     });
-    console.log(`[ONEDRIVE] Saved message from ${senderName}`);
+    console.log(`[ONEDRIVE] Saved log from ${senderName}`);
   } catch (e) {
-    console.error('[ONEDRIVE] Error:', e.message);
+    console.error('[ONEDRIVE] Log Error:', e.message);
+  }
+}
+
+async function saveMediaToOneDrive(messageId, messageType, fileName, senderName) {
+  try {
+    const { dateStr, timeStr } = getThaiNow();
+
+    // Download from LINE
+    const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+    });
+    if (!lineRes.ok) return;
+
+    const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
+    const ext = getExtension(contentType, fileName);
+    const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
+    const buffer = await lineRes.arrayBuffer();
+
+    // Upload to OneDrive
+    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${dateStr}/${finalFileName}`;
+    const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
+
+    await fetch(mediaUrl, {
+      method: 'PUT',
+      headers: { ...oneDriveHeaders(), 'Content-Type': contentType },
+      body: buffer
+    });
+    console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
+
+    // Log reference in daily .md
+    const isImage = messageType === 'image';
+    const mediaRef = isImage
+      ? `![[LINE-Media/${dateStr}/${finalFileName}]]`
+      : `📎 [${finalFileName}](../LINE-Media/${dateStr}/${finalFileName})`;
+
+    await saveToOneDrive(null, senderName, mediaRef);
+  } catch (e) {
+    console.error('[ONEDRIVE] Media Error:', e.message);
   }
 }
 
@@ -254,28 +252,14 @@ export default async function handler(req, res) {
   const events = body.events || [];
 
   for (const event of events) {
-    if (event.type !== 'message' || event.message.type !== 'text') continue;
+    if (event.type !== 'message') continue;
 
-    const text = event.message.text.trim();
+    const msgType = event.message.type;
+    const messageId = event.message.id;
     const userId = event.source.userId;
-    const replyToken = event.replyToken;
 
-    // === ระบบลงทะเบียน: "ฉัน [ชื่อ]" ===
-    const registerMatch = text.match(/^ฉัน\s+(.+)$/);
-    if (registerMatch) {
-      const inputName = registerMatch[1].trim();
-      const member = findMemberByName(inputName);
-      if (member) {
-        await saveUserToSheets(userId, inputName, member.id);
-        console.log(`[REGISTER] ${inputName} → id=${member.id}`);
-      }
-      continue;
-    }
-
-    // ดึง memberId จาก cache (Sheets)
+    // ดึง memberId จาก cache
     let knownMemberId = await getMemberIdFromSheets(userId);
-
-    // ถ้ายังไม่มี cache ลองดึงชื่อจาก LINE API
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, event.source);
       if (displayName) {
@@ -287,18 +271,48 @@ export default async function handler(req, res) {
       }
     }
 
-    // บันทึกทุกข้อความลง OneDrive
     const memberForLog = MEMBERS.find(m => m.id === knownMemberId);
-    saveToOneDrive(text, memberForLog ? memberForLog.names[0] : userId);
+    const senderName = memberForLog ? memberForLog.names[0] : userId;
 
-    // กรองเฉพาะข้อความที่เกี่ยวกับการลา
+    // === รูปภาพ ===
+    if (msgType === 'image') {
+      saveMediaToOneDrive(messageId, 'image', null, senderName);
+      continue;
+    }
+
+    // === ไฟล์ (PDF, Word, Excel ฯลฯ) ===
+    if (msgType === 'file') {
+      const fileName = event.message.fileName || null;
+      saveMediaToOneDrive(messageId, 'file', fileName, senderName);
+      continue;
+    }
+
+    // === ข้อความ text เท่านั้น ===
+    if (msgType !== 'text') continue;
+
+    const text = event.message.text.trim();
+
+    // ระบบลงทะเบียน
+    const registerMatch = text.match(/^ฉัน\s+(.+)$/);
+    if (registerMatch) {
+      const inputName = registerMatch[1].trim();
+      const member = findMemberByName(inputName);
+      if (member) {
+        await saveUserToSheets(userId, inputName, member.id);
+        console.log(`[REGISTER] ${inputName} → id=${member.id}`);
+      }
+      continue;
+    }
+
+    // บันทึกข้อความลง OneDrive
+    saveToOneDrive(text, senderName, null);
+
+    // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (!hasTrigger) continue;
-
-    // keyword matching อย่างเดียว
     if (!knownMemberId) continue;
-    const result = quickDetect(text, knownMemberId);
 
+    const result = quickDetect(text, knownMemberId);
     if (result && result.action !== 'none') {
       const finalId = result.memberId || knownMemberId;
       if (finalId) {
@@ -307,9 +321,7 @@ export default async function handler(req, res) {
           const leaveDate = extractLeaveDateFromText(text);
           if (leaveDate) {
             const today = new Date().toISOString().slice(0, 10);
-            if (leaveDate > today) {
-              status = `leave_advance:${leaveDate}`;
-            }
+            if (leaveDate > today) status = `leave_advance:${leaveDate}`;
           }
         }
         await updateSheet(finalId, status);
