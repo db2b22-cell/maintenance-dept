@@ -221,7 +221,7 @@ async function ensureProfilePic(userId, senderName, source) {
 }
 
 async function appendToLog(groupName, dateStr, htmlBlock) {
-  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${groupName}/${dateStr}.md:/content`;
+  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md:/content`;
   const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
   const existing = getRes.ok ? await getRes.text() : `<div class="lc">\n`;
   await fetch(fileUrl, {
@@ -273,7 +273,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
     const buffer = await lineRes.arrayBuffer();
 
-    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${groupName}/${dateStr}/${finalFileName}`;
+    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${encodeURIComponent(groupName)}/${dateStr}/${finalFileName}`;
     const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
 
     const upRes = await fetch(mediaUrl, {
