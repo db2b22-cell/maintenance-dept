@@ -73,16 +73,23 @@ async function getGroupName(source) {
     const gid = source.groupId;
     if (groupNameCache[gid]) return groupNameCache[gid];
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
       const res = await fetch(`https://api.line.me/v2/bot/group/${gid}/summary`, {
-        headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+        headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
         const name = (data.groupName || gid).replace(/[\/\\:*?"<>|]/g, '_');
         groupNameCache[gid] = name;
         return name;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log(`[GROUP] name fetch skipped: ${e.message}`);
+    }
+    groupNameCache[gid] = gid;
     return gid;
   } else if (source.type === 'room') {
     return `room_${source.roomId}`;
@@ -410,3 +417,4 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ success: true });
 }
+
