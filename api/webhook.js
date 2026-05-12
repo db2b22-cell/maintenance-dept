@@ -228,16 +228,45 @@ async function ensureProfilePic(userId, senderName, source) {
 }
 
 async function appendToLog(groupName, dateStr, htmlBlock) {
-  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md:/content`;
-  const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
-  const existing = getRes.ok ? await getRes.text() : `<div class="lc">\n`;
-  await fetch(fileUrl, {
-    method: 'PUT',
-    headers: { ...oneDriveHeaders(), 'Content-Type': 'text/plain' },
-    body: existing + htmlBlock
-  });
+  const metaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md?$select=eTag,@microsoft.graph.downloadUrl`;
+  const contentUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md:/content`;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let existing = `<div class="lc">\n`;
+    let etag = null;
+    try {
+      const metaRes = await fetch(metaUrl, { headers: oneDriveHeaders() });
+      if (metaRes.ok) {
+        const meta = await metaRes.json();
+        etag = meta.eTag || null;
+        const dlUrl = meta['@microsoft.graph.downloadUrl'];
+        if (dlUrl) {
+          const dlRes = await fetch(dlUrl);
+          if (dlRes.ok) existing = await dlRes.text();
+        }
+      }
+    } catch (e) {
+      console.log('[LOG] Read error:', e.message);
+    }
+    const putHeaders = { ...oneDriveHeaders(), 'Content-Type': 'text/plain' };
+    if (etag) putHeaders['If-Match'] = etag;
+    else putHeaders['If-None-Match'] = '*';
+    const putRes = await fetch(contentUrl, {
+      method: 'PUT',
+      headers: putHeaders,
+      body: existing + htmlBlock
+    });
+    if (putRes.ok) return;
+    if (putRes.status === 412) {
+      console.log(`[LOG] Conflict attempt ${attempt + 1}, retrying...`);
+      await new Promise(r => setTimeout(r, 100 + Math.random() * 200));
+      continue;
+    }
+    const errText = await putRes.text().catch(() => '');
+    console.error(`[LOG] Write failed: ${putRes.status} ${errText.slice(0, 100)}`);
+    return;
+  }
+  console.error('[LOG] Max retries exceeded');
 }
-
 // Returns { groupName, dateStr, html } — ไม่เขียน log เอง
 async function buildTextEntry(text, senderName, userId, source, groupName) {
   try {
