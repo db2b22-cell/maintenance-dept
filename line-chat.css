@@ -1,4 +1,4 @@
-/* LINE Chat Style for Obsidian */
+/* LINE Feed Style for Obsidian */
 
 .markdown-preview-view .lc,
 .markdown-rendered .lc {
@@ -7,80 +7,60 @@
   border-radius: 8px;
 }
 
-/* Chat message row */
-.cm {
+/* Message block */
+.msg {
+  display: block;
+  margin: 10px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Header: avatar + name + time */
+.mh {
   display: flex;
-  align-items: flex-end;
-  margin: 6px 0;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
 /* Avatar */
 .av {
-  width: 38px !important;
-  height: 38px !important;
+  width: 36px !important;
+  height: 36px !important;
   border-radius: 50% !important;
   object-fit: cover !important;
   flex-shrink: 0;
 }
 
-/* Bubble */
-.bub {
-  max-width: 65%;
-  padding: 8px 12px;
-  border-radius: 18px;
-  font-size: 0.9em;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-/* Left (others) */
-.cm.left {
-  flex-direction: row;
-}
-.cm.left .bub {
-  background: #2e2e4e;
-  color: #e0e0e0;
-  border-bottom-left-radius: 4px;
-}
-
-/* Right (me) */
-.cm.right {
-  flex-direction: row-reverse;
-}
-.cm.right .bub {
-  background: #4caf82;
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
 /* Sender name */
 .nm {
-  font-size: 0.78em;
-  color: #aaa;
-  display: block;
-  margin-bottom: 2px;
+  font-size: 0.88em;
+  font-weight: bold;
+  color: #c8b8f0;
+}
+
+/* Timestamp */
+.ts {
+  font-size: 0.72em;
+  color: rgba(255,255,255,0.4);
+  margin-left: 4px;
 }
 
 /* Message text */
 .ct {
   display: block;
+  padding-left: 44px;
+  color: #e0e0e0;
+  font-size: 0.9em;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
-/* Timestamp */
-.ts {
-  font-size: 0.7em;
-  color: rgba(255,255,255,0.5);
-  display: block;
-  text-align: right;
-  margin-top: 2px;
-}
-
-/* Chat image */
+/* Full image */
 .ci {
-  max-width: 200px !important;
-  max-height: 200px !important;
+  display: block !important;
+  margin-left: 44px;
+  margin-top: 4px;
+  max-width: calc(100% - 44px) !important;
   border-radius: 10px !important;
-  display: block;
-  margin: 4px 0;
 }
