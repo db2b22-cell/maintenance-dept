@@ -1,6 +1,11 @@
 {
   "version": 2,
   "outputDirectory": "src/src",
+  "functions": {
+    "api/webhook.js": {
+      "maxDuration": 30
+    }
+  },
   "crons": [
     {
       "path": "/api/reset",
