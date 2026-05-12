@@ -234,19 +234,12 @@ async function appendToLog(groupName, dateStr, htmlBlock) {
 async function saveToOneDrive(text, senderName, memberId, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
-    const isMe = memberId === MY_MEMBER_ID;
-    const side = isMe ? 'right' : 'left';
     const av = `../LINE-Profiles/${senderName}.jpg`;
 
     if (userId) await ensureProfilePic(userId, senderName, source);
 
-    let bubble = '';
-    if (text) bubble += `<span class="ct">${text}</span>`;
-    bubble += `<span class="ts">${timeStr}</span>`;
-
-    let html = `<div class="cm ${side}">`;
-    if (!isMe) html += `<img class="av" src="${av}"><div class="bub"><b class="nm">${senderName}</b><br>${bubble}</div>`;
-    else html += `<div class="bub">${bubble}</div><img class="av" src="${av}">`;
+    let html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${senderName}</b><span class="ts">${timeStr}</span></div>`;
+    if (text) html += `<span class="ct">${text}</span>`;
     html += `</div>\n`;
 
     await appendToLog(groupName, dateStr, html);
@@ -289,20 +282,14 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     }
     const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
     const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
-    const isMe = mediaMemberId === MY_MEMBER_ID;
-    const side = isMe ? 'right' : 'left';
     const av = `../LINE-Profiles/${mediaSender}.jpg`;
     if (userId) await ensureProfilePic(userId, mediaSender, source);
 
     let html = '';
     if (upRes.ok) {
-      const imgTag = `<img src="../LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"><span class="ts">${timeStr}</span>`;
-      html = `<div class="cm ${side}">`;
-      if (!isMe) html += `<img class="av" src="${av}"><div class="bub"><b class="nm">${mediaSender}</b><br>${imgTag}</div>`;
-      else html += `<div class="bub">${imgTag}</div><img class="av" src="${av}">`;
-      html += `</div>\n`;
+      html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="../LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
     } else {
-      html = `<div class="cm left"><div class="bub"><span class="ts">${timeStr}</span> [upload failed]</div></div>\n`;
+      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed]</span></div>\n`;
     }
     await appendToLog(groupName, dateStr, html);
 
