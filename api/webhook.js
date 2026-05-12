@@ -230,7 +230,7 @@ async function getGroupName(source) {
       clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
-        const name = (data.groupName || gid).replace(/[\/\\:*?"<>|]/g, '_');
+        const name = (data.groupName || gid).replace(/[\/\\:*?"<>|]/g, '_').replace(/[\s.]+$/, '');
         groupNameCache[gid] = name;
         return name;
       }
