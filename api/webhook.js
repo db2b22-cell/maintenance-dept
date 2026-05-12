@@ -243,7 +243,7 @@ async function saveToOneDrive(text, senderName, memberId, userId, source, groupN
     const { dateStr, timeStr } = getThaiNow();
     const av = `../LINE-Profiles/${senderName}.jpg`;
 
-    if (userId) await ensureProfilePic(userId, senderName, source);
+    if (userId) ensureProfilePic(userId, senderName, source).catch(() => {});
 
     let html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${senderName}</b><span class="ts">${timeStr}</span></div>`;
     if (text) html += `<span class="ct">${text}</span>`;
@@ -290,7 +290,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
     const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
     const av = `../LINE-Profiles/${mediaSender}.jpg`;
-    if (userId) await ensureProfilePic(userId, mediaSender, source);
+    if (userId) ensureProfilePic(userId, mediaSender, source).catch(() => {});
 
     let html = '';
     if (upRes.ok) {
