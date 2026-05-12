@@ -260,13 +260,28 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
   try {
     const { dateStr, timeStr } = getThaiNow();
 
-    const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
-      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
-    });
+    // ทำ member lookup และ download รูปพร้อมกัน (parallel)
+    const [lineRes, mediaMemberIdRaw] = await Promise.all([
+      fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+        headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+      }),
+      getMemberIdFromSheets(userId).catch(() => null),
+    ]);
+
     if (!lineRes.ok) {
       console.error(`[LINE] Content fetch failed: ${lineRes.status} msgId=${messageId}`);
       return;
     }
+
+    let mediaMemberId = mediaMemberIdRaw;
+    if (!mediaMemberId) {
+      const dn = await getLineDisplayName(userId, source || { type: 'user' }).catch(() => null);
+      if (dn) { const m = findMemberByName(dn); if (m) mediaMemberId = m.id; }
+    }
+    const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
+    const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
+    const av = `../LINE-Profiles/${mediaSender}.jpg`;
+    if (userId) ensureProfilePic(userId, mediaSender, source).catch(() => {});
 
     const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
     const ext = getExtension(contentType, fileName);
@@ -281,16 +296,6 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
       headers: { ...oneDriveHeaders(), 'Content-Type': contentType },
       body: buffer,
     });
-
-    let mediaMemberId = await getMemberIdFromSheets(userId).catch(() => null);
-    if (!mediaMemberId) {
-      const dn = await getLineDisplayName(userId, source || { type: 'user' }).catch(() => null);
-      if (dn) { const m = findMemberByName(dn); if (m) mediaMemberId = m.id; }
-    }
-    const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
-    const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
-    const av = `../LINE-Profiles/${mediaSender}.jpg`;
-    if (userId) ensureProfilePic(userId, mediaSender, source).catch(() => {});
 
     let html = '';
     if (upRes.ok) {
