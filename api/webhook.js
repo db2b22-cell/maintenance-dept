@@ -301,7 +301,8 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     if (upRes.ok) {
       html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
     } else {
-      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed]</span></div>\n`;
+      const errText2 = await upRes.text().catch(() => '');
+      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed: ${upRes.status} ${errText2.slice(0,80)}]</span></div>\n`;
     }
     await appendToLog(groupName, dateStr, html);
 
