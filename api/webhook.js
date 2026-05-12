@@ -337,8 +337,8 @@ export default async function handler(req, res) {
 
   const events = body.events || [];
 
-  for (const event of events) {
-    if (event.type !== 'message') continue;
+  async function processEvent(event) {
+    if (event.type !== 'message') return;
 
     const msgType = event.message.type;
     const messageId = event.message.id;
@@ -351,21 +351,21 @@ export default async function handler(req, res) {
     // ข้ามวีดีโอ
     if (msgType === 'video') {
       console.log(`[SKIP] Video message skipped: ${messageId}`);
-      continue;
+      return;
     }
 
     if (msgType === 'image') {
       await saveMediaToOneDrive(messageId, 'image', null, userId, source, groupName);
-      continue;
+      return;
     }
 
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
       await saveMediaToOneDrive(messageId, 'file', fileName, userId, source, groupName);
-      continue;
+      return;
     }
 
-    if (msgType !== 'text') continue;
+    if (msgType !== 'text') return;
 
     // Member lookup
     let knownMemberId = await getMemberIdFromSheets(userId);
@@ -394,15 +394,15 @@ export default async function handler(req, res) {
         await saveUserToSheets(userId, inputName, member.id);
         console.log(`[REGISTER] ${inputName} → id=${member.id}`);
       }
-      continue;
+      return;
     }
 
     await saveToOneDrive(text, senderName, knownMemberId, userId, source, groupName);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
-    if (!hasTrigger) continue;
-    if (!knownMemberId) continue;
+    if (!hasTrigger) return;
+    if (!knownMemberId) return;
 
     const result = quickDetect(text, knownMemberId);
     if (result && result.action !== 'none') {
@@ -420,6 +420,11 @@ export default async function handler(req, res) {
       }
     }
   }
+
+  // ประมวลผลทุก event พร้อมกัน (parallel)
+  await Promise.all(events.map(event => processEvent(event).catch(e => {
+    console.error('[EVENT] Error:', e.message);
+  })));
 
   return res.status(200).json({ success: true });
 }
