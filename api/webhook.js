@@ -157,13 +157,24 @@ const oneDriveHeaders = () => ({
   'Maton-Connection': ONEDRIVE_CONNECTION_ID,
 });
 
-async function ensureProfilePic(userId, senderName) {
+async function ensureProfilePic(userId, senderName, source) {
   try {
     const picPath = `/Apps/remotely-save/Makatoon/LINE-Profiles/${senderName}.jpg`;
     const checkUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${picPath}:/content`;
     const check = await fetch(checkUrl, { headers: oneDriveHeaders() });
     if (check.ok) return; // มีอยู่แล้ว
-    const profile = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+
+    // ดึง profile ตาม source type
+    let profileUrl;
+    if (source && source.type === 'group' && source.groupId) {
+      profileUrl = `https://api.line.me/v2/bot/group/${source.groupId}/member/${userId}`;
+    } else if (source && source.type === 'room' && source.roomId) {
+      profileUrl = `https://api.line.me/v2/bot/room/${source.roomId}/member/${userId}`;
+    } else {
+      profileUrl = `https://api.line.me/v2/bot/profile/${userId}`;
+    }
+
+    const profile = await fetch(profileUrl, {
       headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
     });
     if (!profile.ok) return;
@@ -177,7 +188,10 @@ async function ensureProfilePic(userId, senderName) {
       headers: { ...oneDriveHeaders(), 'Content-Type': 'image/jpeg' },
       body: buf,
     });
-  } catch (e) {}
+    console.log(`[PROFILE] Saved profile pic for ${senderName}`);
+  } catch (e) {
+    console.error(`[PROFILE] Error: ${e.message}`);
+  }
 }
 
 async function appendToLog(dateStr, htmlBlock) {
@@ -191,14 +205,14 @@ async function appendToLog(dateStr, htmlBlock) {
   });
 }
 
-async function saveToOneDrive(text, senderName, memberId, userId) {
+async function saveToOneDrive(text, senderName, memberId, userId, source) {
   try {
     const { dateStr, timeStr } = getThaiNow();
     const isMe = memberId === MY_MEMBER_ID;
     const side = isMe ? 'right' : 'left';
     const av = `LINE-Profiles/${senderName}.jpg`;
 
-    if (userId) await ensureProfilePic(userId, senderName);
+    if (userId) await ensureProfilePic(userId, senderName, source);
 
     let bubble = '';
     if (text) bubble += `<span class="ct">${text}</span>`;
@@ -216,7 +230,7 @@ async function saveToOneDrive(text, senderName, memberId, userId) {
   }
 }
 
-async function saveMediaToOneDrive(messageId, messageType, fileName, userId) {
+async function saveMediaToOneDrive(messageId, messageType, fileName, userId, source) {
   try {
     const { dateStr, timeStr } = getThaiNow();
 
@@ -246,7 +260,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId) {
     // Look up member for this userId
     let mediaMemberId = await getMemberIdFromSheets(userId).catch(() => null);
     if (!mediaMemberId) {
-      const dn = await getLineDisplayName(userId, { type: 'group', groupId: '' }).catch(() => null);
+      const dn = await getLineDisplayName(userId, source || { type: 'user' }).catch(() => null);
       if (dn) { const m = findMemberByName(dn); if (m) mediaMemberId = m.id; }
     }
     const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
@@ -254,7 +268,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId) {
     const isMe = mediaMemberId === MY_MEMBER_ID;
     const side = isMe ? 'right' : 'left';
     const av = `LINE-Profiles/${mediaSender}.jpg`;
-    if (userId) await ensureProfilePic(userId, mediaSender);
+    if (userId) await ensureProfilePic(userId, mediaSender, source);
 
     let html = '';
     if (upRes.ok) {
@@ -305,8 +319,8 @@ export default async function handler(req, res) {
     const msgType = event.message.type;
     const messageId = event.message.id;
     const userId = event.source.userId;
+    const source = event.source;
 
-    // Handle media BEFORE member lookup to save time
     // ข้ามวีดีโอ - ไม่บันทึกลง OneDrive
     if (msgType === 'video') {
       console.log(`[SKIP] Video message skipped: ${messageId}`);
@@ -314,13 +328,13 @@ export default async function handler(req, res) {
     }
 
     if (msgType === 'image') {
-      await saveMediaToOneDrive(messageId, 'image', null, userId);
+      await saveMediaToOneDrive(messageId, 'image', null, userId, source);
       continue;
     }
 
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
-      await saveMediaToOneDrive(messageId, 'file', fileName, userId);
+      await saveMediaToOneDrive(messageId, 'file', fileName, userId, source);
       continue;
     }
 
@@ -329,7 +343,7 @@ export default async function handler(req, res) {
     // Member lookup only for text messages
     let knownMemberId = await getMemberIdFromSheets(userId);
     if (!knownMemberId) {
-      const displayName = await getLineDisplayName(userId, event.source);
+      const displayName = await getLineDisplayName(userId, source);
       if (displayName) {
         const member = findMemberByName(displayName);
         if (member) {
@@ -356,7 +370,7 @@ export default async function handler(req, res) {
       continue;
     }
 
-    await saveToOneDrive(text, senderName, knownMemberId, userId);
+    await saveToOneDrive(text, senderName, knownMemberId, userId, source);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
