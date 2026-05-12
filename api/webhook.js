@@ -3,7 +3,7 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = 'zAxex+H02fBeebm6uRsJz4gYYxWk7Jxpxa+w2Hzc5XYLEFBxT1CCXT/IFkC+TYb8GkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw/rE6xOdsnYVA7P+wFbt/c7/v8hHXXE1IAYyp+i86mUOgdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const ONEDRIVE_CONNECTION_ID = '2fcb4244-d299-422c-909f-d6cbbc708b26';
+const GDRIVE_CONNECTION_ID = '9d9d8ae1-7cff-44ca-b29c-3e95f9aaac7e';
 const MY_MEMBER_ID = 6; // อุดมชัย - ข้อความจะอยู่ขวา
 
 export const config = {
@@ -34,9 +34,154 @@ const LEAVE_RE = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก
 const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
 const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
 
-// Cache ชื่อกลุ่มในหน่วยความจำ (หายเมื่อ restart แต่ช่วยลด API call)
 const groupNameCache = {};
 
+// ---- Google Drive helpers ----
+const folderIdCache = {}; // module-level cache (reused across warm Vercel instances)
+
+const gdriveHeaders = () => ({
+  'Authorization': `Bearer ${process.env.MATON_API_KEY}`,
+  'Maton-Connection': GDRIVE_CONNECTION_ID,
+});
+
+async function gdriveSearch(q, fields = 'files(id)') {
+  const params = new URLSearchParams({ q, fields, spaces: 'drive' });
+  const res = await fetch(`https://api.maton.ai/google-drive/drive/v3/files?${params}`, {
+    headers: gdriveHeaders(),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function gdriveGetOrCreateFolder(name, parentId) {
+  const key = `${parentId}::${name}`;
+  if (folderIdCache[key]) return folderIdCache[key];
+  const files = await gdriveSearch(
+    `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
+  );
+  if (files.length > 0) {
+    folderIdCache[key] = files[0].id;
+    return files[0].id;
+  }
+  const res = await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
+    method: 'POST',
+    headers: { ...gdriveHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
+  });
+  if (!res.ok) throw new Error(`Cannot create folder ${name}: ${res.status}`);
+  const data = await res.json();
+  folderIdCache[key] = data.id;
+  return data.id;
+}
+
+async function gdriveGetRootId() {
+  if (folderIdCache['__root__']) return folderIdCache['__root__'];
+  const files = await gdriveSearch(
+    `name='Makatoon' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`
+  );
+  if (files.length > 0) {
+    folderIdCache['__root__'] = files[0].id;
+    return files[0].id;
+  }
+  const res = await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
+    method: 'POST',
+    headers: { ...gdriveHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Makatoon', mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  if (!res.ok) throw new Error('Cannot create Makatoon root folder');
+  const data = await res.json();
+  folderIdCache['__root__'] = data.id;
+  return data.id;
+}
+
+async function gdriveReadText(fileId) {
+  const res = await fetch(`https://api.maton.ai/google-drive/drive/v3/files/${fileId}?alt=media`, {
+    headers: gdriveHeaders(),
+  });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
+function buildMultipartText(metadata, textContent) {
+  const boundary = 'gdrive_boundary_maton';
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(metadata),
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    '',
+    textContent,
+    `--${boundary}--`,
+  ].join('\r\n');
+  return { body, contentType: `multipart/related; boundary=${boundary}` };
+}
+
+async function gdriveWriteText(name, folderId, content, existingId = null) {
+  const { body, contentType } = buildMultipartText(
+    existingId ? {} : { name, parents: [folderId] },
+    content
+  );
+  const url = existingId
+    ? `https://api.maton.ai/google-drive/upload/drive/v3/files/${existingId}?uploadType=multipart`
+    : 'https://api.maton.ai/google-drive/upload/drive/v3/files?uploadType=multipart';
+  const method = existingId ? 'PATCH' : 'POST';
+  const res = await fetch(url, {
+    method,
+    headers: { ...gdriveHeaders(), 'Content-Type': contentType },
+    body,
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`gdriveWriteText failed: ${res.status} ${err.slice(0, 100)}`);
+  }
+  return await res.json();
+}
+
+async function gdriveUploadBinary(name, folderId, buffer, mimeType) {
+  // Step 1: create metadata
+  const metaRes = await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
+    method: 'POST',
+    headers: { ...gdriveHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, parents: [folderId] }),
+  });
+  if (!metaRes.ok) throw new Error(`Create metadata failed: ${metaRes.status}`);
+  const { id: fileId } = await metaRes.json();
+  // Step 2: upload content
+  const upRes = await fetch(`https://api.maton.ai/google-drive/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { ...gdriveHeaders(), 'Content-Type': mimeType },
+    body: buffer,
+  });
+  if (!upRes.ok) throw new Error(`Upload binary failed: ${upRes.status}`);
+  return fileId;
+}
+
+// ---- Core logging ----
+async function appendToLog(groupName, dateStr, htmlBlock) {
+  try {
+    const rootId = await gdriveGetRootId();
+    const logsId = await gdriveGetOrCreateFolder('LINE-Logs', rootId);
+    const groupFolderId = await gdriveGetOrCreateFolder(groupName, logsId);
+    const fileName = `${dateStr}.md`;
+    const files = await gdriveSearch(`name='${fileName}' and '${groupFolderId}' in parents and trashed=false`);
+    let existing = '<div class="lc">\n';
+    let fileId = null;
+    if (files.length > 0) {
+      fileId = files[0].id;
+      const content = await gdriveReadText(fileId);
+      if (content) existing = content;
+    }
+    await gdriveWriteText(fileName, groupFolderId, existing + htmlBlock, fileId);
+    console.log(`[GDRIVE] Log: ${groupName}/${dateStr}`);
+  } catch (e) {
+    console.error('[GDRIVE] Log error:', e.message);
+  }
+}
+
+// ---- Utility ----
 function quickDetect(text, memberId) {
   if (CANCEL_WORDS.some(w => text.includes(w)))
     return { action: 'cancel', memberId, status: 'present' };
@@ -67,7 +212,6 @@ function findMemberByName(name) {
   return null;
 }
 
-// ดึงชื่อกลุ่มจาก LINE API และ cache ไว้
 async function getGroupName(source) {
   if (source.type === 'group') {
     const gid = source.groupId;
@@ -137,19 +281,15 @@ function extractLeaveDateFromText(text) {
   const now = new Date();
   const ty = now.getFullYear().toString();
   const tm = String(now.getMonth() + 1).padStart(2, '0');
-
   let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-
   if (/พรุ่งนี้/.test(text)) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
   }
-
   m = text.match(/วันที่?\s*(\d{1,2})/);
   if (m) return `${ty}-${tm}-${m[1].padStart(2,'0')}`;
-
   return null;
 }
 
@@ -186,88 +326,33 @@ function getExtension(contentType, fileName) {
   return map[contentType] || '.bin';
 }
 
-const oneDriveHeaders = () => ({
-  'Authorization': `Bearer ${process.env.MATON_API_KEY}`,
-  'Maton-Connection': ONEDRIVE_CONNECTION_ID,
-});
-
 async function ensureProfilePic(userId, senderName, source) {
   try {
-    const picPath = `/Apps/remotely-save/Makatoon/LINE-Profiles/${senderName}.jpg`;
-    const checkUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${picPath}:/content`;
-    const check = await fetch(checkUrl, { headers: oneDriveHeaders() });
-    if (check.ok) return;
-
+    const rootId = await gdriveGetRootId();
+    const profilesId = await gdriveGetOrCreateFolder('LINE-Profiles', rootId);
+    const picName = `${senderName}.jpg`;
+    const existing = await gdriveSearch(`name='${picName}' and '${profilesId}' in parents and trashed=false`);
+    if (existing.length > 0) return;
     let profileUrl;
-    if (source && source.type === 'group' && source.groupId) {
+    if (source && source.type === 'group') {
       profileUrl = `https://api.line.me/v2/bot/group/${source.groupId}/member/${userId}`;
-    } else if (source && source.type === 'room' && source.roomId) {
-      profileUrl = `https://api.line.me/v2/bot/room/${source.roomId}/member/${userId}`;
     } else {
       profileUrl = `https://api.line.me/v2/bot/profile/${userId}`;
     }
-
-    const profile = await fetch(profileUrl, {
-      headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
-    });
+    const profile = await fetch(profileUrl, { headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` } });
     if (!profile.ok) return;
     const { pictureUrl } = await profile.json();
     if (!pictureUrl) return;
     const imgRes = await fetch(pictureUrl);
     if (!imgRes.ok) return;
     const buf = await imgRes.arrayBuffer();
-    await fetch(checkUrl, {
-      method: 'PUT',
-      headers: { ...oneDriveHeaders(), 'Content-Type': 'image/jpeg' },
-      body: buf,
-    });
-    console.log(`[PROFILE] Saved profile pic for ${senderName}`);
+    await gdriveUploadBinary(picName, profilesId, buf, 'image/jpeg');
+    console.log(`[PROFILE] Saved ${senderName}`);
   } catch (e) {
     console.error(`[PROFILE] Error: ${e.message}`);
   }
 }
 
-async function appendToLog(groupName, dateStr, htmlBlock) {
-  const metaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md?$select=eTag,@microsoft.graph.downloadUrl`;
-  const contentUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${encodeURIComponent(groupName)}/${dateStr}.md:/content`;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    let existing = `<div class="lc">\n`;
-    let etag = null;
-    try {
-      const metaRes = await fetch(metaUrl, { headers: oneDriveHeaders() });
-      if (metaRes.ok) {
-        const meta = await metaRes.json();
-        etag = meta.eTag || null;
-        const dlUrl = meta['@microsoft.graph.downloadUrl'];
-        if (dlUrl) {
-          const dlRes = await fetch(dlUrl);
-          if (dlRes.ok) existing = await dlRes.text();
-        }
-      }
-    } catch (e) {
-      console.log('[LOG] Read error:', e.message);
-    }
-    const putHeaders = { ...oneDriveHeaders(), 'Content-Type': 'text/plain' };
-    if (etag) putHeaders['If-Match'] = etag;
-    else putHeaders['If-None-Match'] = '*';
-    const putRes = await fetch(contentUrl, {
-      method: 'PUT',
-      headers: putHeaders,
-      body: existing + htmlBlock
-    });
-    if (putRes.ok) return;
-    if (putRes.status === 412) {
-      console.log(`[LOG] Conflict attempt ${attempt + 1}, retrying...`);
-      await new Promise(r => setTimeout(r, 100 + Math.random() * 200));
-      continue;
-    }
-    const errText = await putRes.text().catch(() => '');
-    console.error(`[LOG] Write failed: ${putRes.status} ${errText.slice(0, 100)}`);
-    return;
-  }
-  console.error('[LOG] Max retries exceeded');
-}
-// Returns { groupName, dateStr, html } — ไม่เขียน log เอง
 async function buildTextEntry(text, senderName, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
@@ -283,23 +368,19 @@ async function buildTextEntry(text, senderName, userId, source, groupName) {
   }
 }
 
-// อัปโหลดไฟล์ไป OneDrive แล้ว return { groupName, dateStr, html } — ไม่เขียน log เอง
 async function buildMediaEntry(messageId, messageType, fileName, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
-
     const [lineRes, mediaMemberIdRaw] = await Promise.all([
       fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
         headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
       }),
       getMemberIdFromSheets(userId).catch(() => null),
     ]);
-
     if (!lineRes.ok) {
       console.error(`[LINE] Content fetch failed: ${lineRes.status} msgId=${messageId}`);
       return null;
     }
-
     let mediaMemberId = mediaMemberIdRaw;
     if (!mediaMemberId) {
       const dn = await getLineDisplayName(userId, source || { type: 'user' }).catch(() => null);
@@ -309,86 +390,68 @@ async function buildMediaEntry(messageId, messageType, fileName, userId, source,
     const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
     const av = `LINE-Profiles/${mediaSender}.jpg`;
     if (userId) ensureProfilePic(userId, mediaSender, source).catch(() => {});
-
     const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
     const ext = getExtension(contentType, fileName);
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
     const buffer = await lineRes.arrayBuffer();
-
-    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${encodeURIComponent(groupName)}/${dateStr}/${finalFileName}`;
-    const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
-
-    const upRes = await fetch(mediaUrl, {
-      method: 'PUT',
-      headers: { ...oneDriveHeaders(), 'Content-Type': contentType },
-      body: buffer,
-    });
-
+    // Upload to Google Drive
+    const rootId = await gdriveGetRootId();
+    const mediaRootId = await gdriveGetOrCreateFolder('LINE-Media', rootId);
+    const mediaGroupId = await gdriveGetOrCreateFolder(groupName, mediaRootId);
+    const mediaDayId = await gdriveGetOrCreateFolder(dateStr, mediaGroupId);
+    let fileId = null;
     let html;
-    if (upRes.ok) {
+    try {
+      fileId = await gdriveUploadBinary(finalFileName, mediaDayId, buffer, contentType);
       html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
-      console.log(`[ONEDRIVE] Saved media: ${finalFileName} in [${groupName}]`);
-    } else {
-      const errText = await upRes.text().catch(() => '');
-      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed: ${upRes.status} ${errText.slice(0,80)}]</span></div>\n`;
-      console.error(`[ONEDRIVE] Upload failed: ${upRes.status}`);
+      console.log(`[GDRIVE] Media: ${finalFileName} in [${groupName}]`);
+    } catch (e) {
+      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed: ${e.message.slice(0,60)}]</span></div>\n`;
+      console.error(`[GDRIVE] Upload error: ${e.message}`);
     }
     return { groupName, dateStr, html };
   } catch (e) {
-    console.error('[ONEDRIVE] Media Error:', e.message);
+    console.error('[GDRIVE] Media Error:', e.message);
     return null;
   }
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const rawBody = await readRawBody(req);
   const signature = req.headers['x-line-signature'];
-
   if (!signature || !verifySignature(rawBody, signature)) {
     console.error('[WEBHOOK] Invalid signature');
     return res.status(401).json({ error: 'Invalid signature' });
   }
-
   let body;
   try {
     body = JSON.parse(rawBody.toString());
   } catch (e) {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
-
   const events = body.events || [];
 
   async function processEvent(event) {
-    if (event.type !== 'message') return;
-
+    if (event.type !== 'message') return null;
     const msgType = event.message.type;
     const messageId = event.message.id;
     const userId = event.source.userId;
     const source = event.source;
-
-    // ดึงชื่อกลุ่มสำหรับแยกโฟลเดอร์
     const groupName = await getGroupName(source);
-
-    // ข้ามวีดีโอ
     if (msgType === 'video') {
-      console.log(`[SKIP] Video message skipped: ${messageId}`);
+      console.log(`[SKIP] Video skipped: ${messageId}`);
       return null;
     }
-
     if (msgType === 'image') {
       return await buildMediaEntry(messageId, 'image', null, userId, source, groupName);
     }
-
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
       return await buildMediaEntry(messageId, 'file', fileName, userId, source, groupName);
     }
-
     if (msgType !== 'text') return null;
 
-    // Member lookup
     let knownMemberId = await getMemberIdFromSheets(userId);
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, source);
@@ -400,13 +463,9 @@ export default async function handler(req, res) {
         }
       }
     }
-
     const memberForLog = MEMBERS.find(m => m.id === knownMemberId);
     const senderName = memberForLog ? memberForLog.names[0] : userId;
-
     const text = event.message.text.trim();
-
-    // ระบบลงทะเบียน
     const registerMatch = text.match(/^ฉัน\s+(.+)$/);
     if (registerMatch) {
       const inputName = registerMatch[1].trim();
@@ -417,10 +476,7 @@ export default async function handler(req, res) {
       }
       return null;
     }
-
     const entry = await buildTextEntry(text, senderName, userId, source, groupName);
-
-    // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
     if (hasTrigger && knownMemberId) {
       const result = quickDetect(text, knownMemberId);
@@ -439,17 +495,14 @@ export default async function handler(req, res) {
         }
       }
     }
-
     return entry;
   }
 
-  // ประมวลผลทุก event พร้อมกัน (parallel) — แต่ละ event return HTML entry
   const entries = await Promise.all(events.map(event => processEvent(event).catch(e => {
     console.error('[EVENT] Error:', e.message);
     return null;
   })));
 
-  // รวม HTML ที่ log เดียวกัน แล้วเขียนครั้งเดียว — แก้ race condition
   const batches = {};
   for (const entry of entries.filter(Boolean)) {
     const key = `${entry.groupName}:::${entry.dateStr}`;
@@ -457,7 +510,5 @@ export default async function handler(req, res) {
     batches[key].html += entry.html;
   }
   await Promise.all(Object.values(batches).map(b => appendToLog(b.groupName, b.dateStr, b.html)));
-
   return res.status(200).json({ success: true });
 }
-
