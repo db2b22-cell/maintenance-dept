@@ -3,7 +3,7 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = 'zAxex+H02fBeebm6uRsJz4gYYxWk7Jxpxa+w2Hzc5XYLEFBxT1CCXT/IFkC+TYb8GkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw/rE6xOdsnYVA7P+wFbt/c7/v8hHXXE1IAYyp+i86mUOgdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const ONEDRIVE_CONNECTION_ID = '5ede5238-487d-44f2-b146-3de025335451';
+const ONEDRIVE_CONNECTION_ID = '2fcb4244-d299-422c-909f-d6cbbc708b26';
 const MY_MEMBER_ID = 6; // อุดมชัย - ข้อความจะอยู่ขวา
 
 export const config = {
