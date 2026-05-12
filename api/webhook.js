@@ -34,6 +34,9 @@ const LEAVE_RE = /(?<![ก-ฮ])ลา(?:ป่วย|หยุด|งาน|ก
 const CANCEL_WORDS = ['มาแล้ว', 'มาได้', 'ยกเลิกลา', 'ยกเลิก'];
 const LEAVE_WORDS  = ['ป่วย', 'ไม่สบาย', 'ไม่มา', 'หยุด', 'ติดธุระ', 'หาหมอ', 'นัดหมอ', 'พบแพทย์'];
 
+// Cache ชื่อกลุ่มในหน่วยความจำ (หายเมื่อ restart แต่ช่วยลด API call)
+const groupNameCache = {};
+
 function quickDetect(text, memberId) {
   if (CANCEL_WORDS.some(w => text.includes(w)))
     return { action: 'cancel', memberId, status: 'present' };
@@ -62,6 +65,30 @@ function findMemberByName(name) {
     if (m.names.some(n => name.includes(n) || n.includes(name))) return m;
   }
   return null;
+}
+
+// ดึงชื่อกลุ่มจาก LINE API และ cache ไว้
+async function getGroupName(source) {
+  if (source.type === 'group') {
+    const gid = source.groupId;
+    if (groupNameCache[gid]) return groupNameCache[gid];
+    try {
+      const res = await fetch(`https://api.line.me/v2/bot/group/${gid}/summary`, {
+        headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const name = (data.groupName || gid).replace(/[\/\\:*?"<>|]/g, '_');
+        groupNameCache[gid] = name;
+        return name;
+      }
+    } catch (e) {}
+    return gid;
+  } else if (source.type === 'room') {
+    return `room_${source.roomId}`;
+  } else {
+    return 'Direct';
+  }
 }
 
 async function getLineDisplayName(userId, source) {
@@ -162,9 +189,8 @@ async function ensureProfilePic(userId, senderName, source) {
     const picPath = `/Apps/remotely-save/Makatoon/LINE-Profiles/${senderName}.jpg`;
     const checkUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${picPath}:/content`;
     const check = await fetch(checkUrl, { headers: oneDriveHeaders() });
-    if (check.ok) return; // มีอยู่แล้ว
+    if (check.ok) return;
 
-    // ดึง profile ตาม source type
     let profileUrl;
     if (source && source.type === 'group' && source.groupId) {
       profileUrl = `https://api.line.me/v2/bot/group/${source.groupId}/member/${userId}`;
@@ -194,8 +220,8 @@ async function ensureProfilePic(userId, senderName, source) {
   }
 }
 
-async function appendToLog(dateStr, htmlBlock) {
-  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${dateStr}.md:/content`;
+async function appendToLog(groupName, dateStr, htmlBlock) {
+  const fileUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:/Apps/remotely-save/Makatoon/LINE-Logs/${groupName}/${dateStr}.md:/content`;
   const getRes = await fetch(fileUrl, { headers: oneDriveHeaders() });
   const existing = getRes.ok ? await getRes.text() : `<div class="lc">\n`;
   await fetch(fileUrl, {
@@ -205,12 +231,12 @@ async function appendToLog(dateStr, htmlBlock) {
   });
 }
 
-async function saveToOneDrive(text, senderName, memberId, userId, source) {
+async function saveToOneDrive(text, senderName, memberId, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
     const isMe = memberId === MY_MEMBER_ID;
     const side = isMe ? 'right' : 'left';
-    const av = `LINE-Profiles/${senderName}.jpg`;
+    const av = `../LINE-Profiles/${senderName}.jpg`;
 
     if (userId) await ensureProfilePic(userId, senderName, source);
 
@@ -223,18 +249,17 @@ async function saveToOneDrive(text, senderName, memberId, userId, source) {
     else html += `<div class="bub">${bubble}</div><img class="av" src="${av}">`;
     html += `</div>\n`;
 
-    await appendToLog(dateStr, html);
-    console.log(`[ONEDRIVE] Saved log from ${senderName}`);
+    await appendToLog(groupName, dateStr, html);
+    console.log(`[ONEDRIVE] Saved log from ${senderName} in [${groupName}]`);
   } catch (e) {
     console.error('[ONEDRIVE] Log Error:', e.message);
   }
 }
 
-async function saveMediaToOneDrive(messageId, messageType, fileName, userId, source) {
+async function saveMediaToOneDrive(messageId, messageType, fileName, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
 
-    // Download from LINE as buffer
     const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
     });
@@ -248,7 +273,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     const finalFileName = fileName || `${messageType}_${messageId}${ext}`;
     const buffer = await lineRes.arrayBuffer();
 
-    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${dateStr}/${finalFileName}`;
+    const mediaPath = `/Apps/remotely-save/Makatoon/LINE-Media/${groupName}/${dateStr}/${finalFileName}`;
     const mediaUrl = `https://api.maton.ai/one-drive/v1.0/me/drive/root:${mediaPath}:/content`;
 
     const upRes = await fetch(mediaUrl, {
@@ -257,7 +282,6 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
       body: buffer,
     });
 
-    // Look up member for this userId
     let mediaMemberId = await getMemberIdFromSheets(userId).catch(() => null);
     if (!mediaMemberId) {
       const dn = await getLineDisplayName(userId, source || { type: 'user' }).catch(() => null);
@@ -267,12 +291,12 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
     const isMe = mediaMemberId === MY_MEMBER_ID;
     const side = isMe ? 'right' : 'left';
-    const av = `LINE-Profiles/${mediaSender}.jpg`;
+    const av = `../LINE-Profiles/${mediaSender}.jpg`;
     if (userId) await ensureProfilePic(userId, mediaSender, source);
 
     let html = '';
     if (upRes.ok) {
-      const imgTag = `<img src="LINE-Media/${dateStr}/${finalFileName}" class="ci"><span class="ts">${timeStr}</span>`;
+      const imgTag = `<img src="../LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"><span class="ts">${timeStr}</span>`;
       html = `<div class="cm ${side}">`;
       if (!isMe) html += `<img class="av" src="${av}"><div class="bub"><b class="nm">${mediaSender}</b><br>${imgTag}</div>`;
       else html += `<div class="bub">${imgTag}</div><img class="av" src="${av}">`;
@@ -280,10 +304,10 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     } else {
       html = `<div class="cm left"><div class="bub"><span class="ts">${timeStr}</span> [upload failed]</div></div>\n`;
     }
-    await appendToLog(dateStr, html);
+    await appendToLog(groupName, dateStr, html);
 
     if (upRes.ok) {
-      console.log(`[ONEDRIVE] Saved media: ${finalFileName}`);
+      console.log(`[ONEDRIVE] Saved media: ${finalFileName} in [${groupName}]`);
     } else {
       const errText = await upRes.text().catch(() => '');
       console.error(`[ONEDRIVE] Upload failed: ${upRes.status} ${errText.slice(0, 200)}`);
@@ -321,26 +345,29 @@ export default async function handler(req, res) {
     const userId = event.source.userId;
     const source = event.source;
 
-    // ข้ามวีดีโอ - ไม่บันทึกลง OneDrive
+    // ดึงชื่อกลุ่มสำหรับแยกโฟลเดอร์
+    const groupName = await getGroupName(source);
+
+    // ข้ามวีดีโอ
     if (msgType === 'video') {
       console.log(`[SKIP] Video message skipped: ${messageId}`);
       continue;
     }
 
     if (msgType === 'image') {
-      await saveMediaToOneDrive(messageId, 'image', null, userId, source);
+      await saveMediaToOneDrive(messageId, 'image', null, userId, source, groupName);
       continue;
     }
 
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
-      await saveMediaToOneDrive(messageId, 'file', fileName, userId, source);
+      await saveMediaToOneDrive(messageId, 'file', fileName, userId, source, groupName);
       continue;
     }
 
     if (msgType !== 'text') continue;
 
-    // Member lookup only for text messages
+    // Member lookup
     let knownMemberId = await getMemberIdFromSheets(userId);
     if (!knownMemberId) {
       const displayName = await getLineDisplayName(userId, source);
@@ -370,7 +397,7 @@ export default async function handler(req, res) {
       continue;
     }
 
-    await saveToOneDrive(text, senderName, knownMemberId, userId, source);
+    await saveToOneDrive(text, senderName, knownMemberId, userId, source, groupName);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
