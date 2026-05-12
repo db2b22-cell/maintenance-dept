@@ -241,7 +241,7 @@ async function appendToLog(groupName, dateStr, htmlBlock) {
 async function saveToOneDrive(text, senderName, memberId, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
-    const av = `../LINE-Profiles/${senderName}.jpg`;
+    const av = `LINE-Profiles/${senderName}.jpg`;
 
     if (userId) ensureProfilePic(userId, senderName, source).catch(() => {});
 
@@ -280,7 +280,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
     }
     const mediaMember = MEMBERS.find(m => m.id === mediaMemberId);
     const mediaSender = mediaMember ? mediaMember.names[0] : 'unknown';
-    const av = `../LINE-Profiles/${mediaSender}.jpg`;
+    const av = `LINE-Profiles/${mediaSender}.jpg`;
     if (userId) ensureProfilePic(userId, mediaSender, source).catch(() => {});
 
     const contentType = lineRes.headers.get('content-type') || 'application/octet-stream';
@@ -299,7 +299,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
 
     let html = '';
     if (upRes.ok) {
-      html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="../LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
+      html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
     } else {
       html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed]</span></div>\n`;
     }
