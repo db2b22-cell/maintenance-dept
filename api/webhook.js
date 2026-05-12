@@ -238,29 +238,27 @@ async function appendToLog(groupName, dateStr, htmlBlock) {
   });
 }
 
-async function saveToOneDrive(text, senderName, memberId, userId, source, groupName) {
+// Returns { groupName, dateStr, html } — ไม่เขียน log เอง
+async function buildTextEntry(text, senderName, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
     const av = `LINE-Profiles/${senderName}.jpg`;
-
     if (userId) ensureProfilePic(userId, senderName, source).catch(() => {});
-
     let html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${senderName}</b><span class="ts">${timeStr}</span></div>`;
     if (text) html += `<span class="ct">${text}</span>`;
     html += `</div>\n`;
-
-    await appendToLog(groupName, dateStr, html);
-    console.log(`[ONEDRIVE] Saved log from ${senderName} in [${groupName}]`);
+    return { groupName, dateStr, html };
   } catch (e) {
-    console.error('[ONEDRIVE] Log Error:', e.message);
+    console.error('[BUILD] Text Error:', e.message);
+    return null;
   }
 }
 
-async function saveMediaToOneDrive(messageId, messageType, fileName, userId, source, groupName) {
+// อัปโหลดไฟล์ไป OneDrive แล้ว return { groupName, dateStr, html } — ไม่เขียน log เอง
+async function buildMediaEntry(messageId, messageType, fileName, userId, source, groupName) {
   try {
     const { dateStr, timeStr } = getThaiNow();
 
-    // ทำ member lookup และ download รูปพร้อมกัน (parallel)
     const [lineRes, mediaMemberIdRaw] = await Promise.all([
       fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
         headers: { 'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}` }
@@ -270,7 +268,7 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
 
     if (!lineRes.ok) {
       console.error(`[LINE] Content fetch failed: ${lineRes.status} msgId=${messageId}`);
-      return;
+      return null;
     }
 
     let mediaMemberId = mediaMemberIdRaw;
@@ -297,23 +295,19 @@ async function saveMediaToOneDrive(messageId, messageType, fileName, userId, sou
       body: buffer,
     });
 
-    let html = '';
+    let html;
     if (upRes.ok) {
       html = `<div class="msg"><div class="mh"><img class="av" src="${av}"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><img src="LINE-Media/${groupName}/${dateStr}/${finalFileName}" class="ci"></div>\n`;
-    } else {
-      const errText2 = await upRes.text().catch(() => '');
-      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed: ${upRes.status} ${errText2.slice(0,80)}]</span></div>\n`;
-    }
-    await appendToLog(groupName, dateStr, html);
-
-    if (upRes.ok) {
       console.log(`[ONEDRIVE] Saved media: ${finalFileName} in [${groupName}]`);
     } else {
       const errText = await upRes.text().catch(() => '');
-      console.error(`[ONEDRIVE] Upload failed: ${upRes.status} ${errText.slice(0, 200)}`);
+      html = `<div class="msg"><div class="mh"><b class="nm">${mediaSender}</b><span class="ts">${timeStr}</span></div><span class="ct">[upload failed: ${upRes.status} ${errText.slice(0,80)}]</span></div>\n`;
+      console.error(`[ONEDRIVE] Upload failed: ${upRes.status}`);
     }
+    return { groupName, dateStr, html };
   } catch (e) {
     console.error('[ONEDRIVE] Media Error:', e.message);
+    return null;
   }
 }
 
@@ -351,21 +345,19 @@ export default async function handler(req, res) {
     // ข้ามวีดีโอ
     if (msgType === 'video') {
       console.log(`[SKIP] Video message skipped: ${messageId}`);
-      return;
+      return null;
     }
 
     if (msgType === 'image') {
-      await saveMediaToOneDrive(messageId, 'image', null, userId, source, groupName);
-      return;
+      return await buildMediaEntry(messageId, 'image', null, userId, source, groupName);
     }
 
     if (msgType === 'file') {
       const fileName = event.message.fileName || null;
-      await saveMediaToOneDrive(messageId, 'file', fileName, userId, source, groupName);
-      return;
+      return await buildMediaEntry(messageId, 'file', fileName, userId, source, groupName);
     }
 
-    if (msgType !== 'text') return;
+    if (msgType !== 'text') return null;
 
     // Member lookup
     let knownMemberId = await getMemberIdFromSheets(userId);
@@ -394,37 +386,48 @@ export default async function handler(req, res) {
         await saveUserToSheets(userId, inputName, member.id);
         console.log(`[REGISTER] ${inputName} → id=${member.id}`);
       }
-      return;
+      return null;
     }
 
-    await saveToOneDrive(text, senderName, knownMemberId, userId, source, groupName);
+    const entry = await buildTextEntry(text, senderName, userId, source, groupName);
 
     // ตรวจการลางาน
     const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
-    if (!hasTrigger) return;
-    if (!knownMemberId) return;
-
-    const result = quickDetect(text, knownMemberId);
-    if (result && result.action !== 'none') {
-      const finalId = result.memberId || knownMemberId;
-      if (finalId) {
-        let status = result.status;
-        if (status === 'leave' || status === 'absent') {
-          const leaveDate = extractLeaveDateFromText(text);
-          if (leaveDate) {
-            const today = new Date().toISOString().slice(0, 10);
-            if (leaveDate > today) status = `leave_advance:${leaveDate}`;
+    if (hasTrigger && knownMemberId) {
+      const result = quickDetect(text, knownMemberId);
+      if (result && result.action !== 'none') {
+        const finalId = result.memberId || knownMemberId;
+        if (finalId) {
+          let status = result.status;
+          if (status === 'leave' || status === 'absent') {
+            const leaveDate = extractLeaveDateFromText(text);
+            if (leaveDate) {
+              const today = new Date().toISOString().slice(0, 10);
+              if (leaveDate > today) status = `leave_advance:${leaveDate}`;
+            }
           }
+          await updateSheet(finalId, status);
         }
-        await updateSheet(finalId, status);
       }
     }
+
+    return entry;
   }
 
-  // ประมวลผลทุก event พร้อมกัน (parallel)
-  await Promise.all(events.map(event => processEvent(event).catch(e => {
+  // ประมวลผลทุก event พร้อมกัน (parallel) — แต่ละ event return HTML entry
+  const entries = await Promise.all(events.map(event => processEvent(event).catch(e => {
     console.error('[EVENT] Error:', e.message);
+    return null;
   })));
+
+  // รวม HTML ที่ log เดียวกัน แล้วเขียนครั้งเดียว — แก้ race condition
+  const batches = {};
+  for (const entry of entries.filter(Boolean)) {
+    const key = `${entry.groupName}:::${entry.dateStr}`;
+    if (!batches[key]) batches[key] = { groupName: entry.groupName, dateStr: entry.dateStr, html: '' };
+    batches[key].html += entry.html;
+  }
+  await Promise.all(Object.values(batches).map(b => appendToLog(b.groupName, b.dateStr, b.html)));
 
   return res.status(200).json({ success: true });
 }
