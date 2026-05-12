@@ -357,11 +357,11 @@
     /* Side-by-side shift layout */
     .shifts-wrapper{
       display:grid;
-      grid-template-columns:1fr 300px;
+      grid-template-columns:1fr 320px;
       gap:20px;
       align-items:start;
     }
-    @media(max-width:900px){.shifts-wrapper{grid-template-columns:1fr 260px;}}
+    @media(max-width:900px){.shifts-wrapper{grid-template-columns:1fr 280px;}}
     @media(max-width:640px){.shifts-wrapper{grid-template-columns:1fr;}}
     .shift-section{
       margin-bottom:0;animation:fadeInUp 0.6s ease both;
@@ -935,23 +935,33 @@ const SHIFTS = {
 const STATUS_LABELS = { present:'มาทำงาน', absent:'ขาดงาน', leave:'ลา' };
 
 // Parse status — handles leave_advance:START or leave_advance:START:END
+// Switch to leave at 07:30 on startDate, back to present at 07:30 day after endDate
 function parseStatus(rawStatus) {
   if (rawStatus && rawStatus.startsWith('leave_advance:')) {
     const rest = rawStatus.slice(14);
     const parts = rest.split(':');
     const startDate = parts[0];
     const endDate   = parts[1] || parts[0];
-    const today = new Date().toISOString().slice(0, 10);
-    if (today >= startDate && today <= endDate) {
-      // Active leave period
+    // Thai time (UTC+7)
+    const now = new Date();
+    const thNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const today = thNow.toISOString().slice(0, 10);
+    const timeMin = thNow.getUTCHours() * 60 + thNow.getUTCMinutes();
+    const h730 = 7 * 60 + 30;
+    // Day after endDate
+    const endDateObj = new Date(endDate + 'T00:00:00Z');
+    endDateObj.setUTCDate(endDateObj.getUTCDate() + 1);
+    const dayAfterEnd = endDateObj.toISOString().slice(0, 10);
+    // Past leave: day after end at 07:30+
+    if (today > dayAfterEnd || (today === dayAfterEnd && timeMin >= h730)) {
+      return { effective:'present', advanceDate:null, advanceEnd:null };
+    }
+    // Active leave: startDate at 07:30 until end of endDate
+    if (today > startDate || (today === startDate && timeMin >= h730)) {
       return { effective:'leave', advanceDate:null, advanceStart:null, advanceEnd:null };
     }
-    if (today < startDate) {
-      // Future leave
-      return { effective:'present', advanceDate:startDate, advanceEnd:endDate };
-    }
-    // Past — treat as present (cron should have cleaned up)
-    return { effective:'present', advanceDate:null, advanceEnd:null };
+    // Future leave: before startDate (or startDate before 07:30)
+    return { effective:'present', advanceDate:startDate, advanceEnd:endDate };
   }
   return { effective: rawStatus || 'present', advanceDate:null, advanceEnd:null };
 }
@@ -1060,12 +1070,11 @@ function applySheetData(data) {
   if (changed) {
     const anyOpen = document.querySelector('.modal-overlay.open');
     if (!anyOpen) renderAll();
+    setSyncStatus('✅ ซิง ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}), '#27ae60');
   }
-  setSyncStatus('🔄 ' + new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}), changed ? '#27ae60' : '#94a3b8');
 }
 
 function connectLive() {
-  setSyncStatus('⏳ กำลังเชื่อมต่อ...', '#888');
   const es = new EventSource('/api/events');
   es.onmessage = (e) => {
     try {
@@ -1076,7 +1085,6 @@ function connectLive() {
   };
   es.onerror = () => {
     es.close();
-    setSyncStatus('🔴 กำลังเชื่อมต่อใหม่...', '#e74c3c');
     setTimeout(connectLive, 3000);
   };
 }
@@ -1152,6 +1160,7 @@ function renderAll() {
       </div>
       <div class="staff-grid" id="grid-${key}"></div>
     `;
+    section.style.gridColumn = key === 'night' ? '2' : '1';
     wrapper.appendChild(section);
     const grid = section.querySelector(`#grid-${key}`);
     if(group.length===0) {
