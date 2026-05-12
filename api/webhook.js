@@ -57,42 +57,46 @@ async function gdriveSearch(q, fields = 'files(id)') {
 async function gdriveGetOrCreateFolder(name, parentId) {
   const key = `${parentId}::${name}`;
   if (folderIdCache[key]) return folderIdCache[key];
-  const files = await gdriveSearch(
-    `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
-  );
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const files = await gdriveSearch(q, 'files(id,createdTime)');
   if (files.length > 0) {
-    folderIdCache[key] = files[0].id;
-    return files[0].id;
+    const winner = files.sort((a, b) => a.createdTime.localeCompare(b.createdTime))[0];
+    folderIdCache[key] = winner.id;
+    return winner.id;
   }
-  const res = await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
+  await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
     method: 'POST',
     headers: { ...gdriveHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
   });
-  if (!res.ok) throw new Error(`Cannot create folder ${name}: ${res.status}`);
-  const data = await res.json();
-  folderIdCache[key] = data.id;
-  return data.id;
+  // Re-search after create to handle race condition (pick oldest if duplicates)
+  const files2 = await gdriveSearch(q, 'files(id,createdTime)');
+  if (!files2.length) throw new Error(`Cannot create folder ${name}`);
+  const winner2 = files2.sort((a, b) => a.createdTime.localeCompare(b.createdTime))[0];
+  folderIdCache[key] = winner2.id;
+  return winner2.id;
 }
 
 async function gdriveGetRootId() {
   if (folderIdCache['__root__']) return folderIdCache['__root__'];
-  const files = await gdriveSearch(
-    `name='Makatoon' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`
-  );
+  const q = `name='Makatoon' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`;
+  const files = await gdriveSearch(q, 'files(id,createdTime)');
   if (files.length > 0) {
-    folderIdCache['__root__'] = files[0].id;
-    return files[0].id;
+    const winner = files.sort((a, b) => a.createdTime.localeCompare(b.createdTime))[0];
+    folderIdCache['__root__'] = winner.id;
+    return winner.id;
   }
-  const res = await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
+  await fetch('https://api.maton.ai/google-drive/drive/v3/files', {
     method: 'POST',
     headers: { ...gdriveHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: 'Makatoon', mimeType: 'application/vnd.google-apps.folder' }),
   });
-  if (!res.ok) throw new Error('Cannot create Makatoon root folder');
-  const data = await res.json();
-  folderIdCache['__root__'] = data.id;
-  return data.id;
+  // Re-search after create to handle race condition (pick oldest if duplicates)
+  const files2 = await gdriveSearch(q, 'files(id,createdTime)');
+  if (!files2.length) throw new Error('Cannot create Makatoon root folder');
+  const winner2 = files2.sort((a, b) => a.createdTime.localeCompare(b.createdTime))[0];
+  folderIdCache['__root__'] = winner2.id;
+  return winner2.id;
 }
 
 async function gdriveReadText(fileId) {
