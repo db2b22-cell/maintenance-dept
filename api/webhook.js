@@ -3,7 +3,7 @@ import crypto from 'crypto';
 const CHANNEL_SECRET = '64fb0187ad83708a38015d673ab321d1';
 const CHANNEL_ACCESS_TOKEN = 'zAxex+H02fBeebm6uRsJz4gYYxWk7Jxpxa+w2Hzc5XYLEFBxT1CCXT/IFkC+TYb8GkSV3IfYCXntYMZiQ6t0j7+JKpF5Lq2mGXNszncGzw/rE6xOdsnYVA7P+wFbt/c7/v8hHXXE1IAYyp+i86mUOgdB04t89/1O/w1cDnyilFU=';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtslkpUh2oUtcgwE8ToA_tCueY_FHRXFepEyxIlsWap8X4YABgvJPab9dJX7C8ToZ7/exec';
-const LINE_LOGGER_URL = process.env.LINE_LOGGER_URL || 'https://line-logger-kzdoikn1f-db2b22-8989s-projects.vercel.app';
+const LINE_LOGGER_URL = process.env.LINE_LOGGER_URL || 'https://line-logger-ten.vercel.app';
 const INGEST_SECRET = process.env.INGEST_SECRET || 'b652ad7b9fbc9b175a3f6c1c99406333';
 const MY_MEMBER_ID = 6; // อุดมชัย
 
