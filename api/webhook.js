@@ -156,17 +156,22 @@ function quickDetect(text, memberId) {
   return null;
 }
 
-// ---- Forward to line-logger (fire and forget) ----
-function forwardToLogger(events) {
+// ---- Forward to line-logger (await to prevent Vercel from freezing before request sent) ----
+async function forwardToLogger(events) {
   if (!events.length) return;
-  fetch(`${LINE_LOGGER_URL}/api/ingest`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-ingest-secret': INGEST_SECRET,
-    },
-    body: JSON.stringify({ events }),
-  }).catch(e => console.error('[LOGGER] Forward error:', e.message));
+  try {
+    const res = await fetch(`${LINE_LOGGER_URL}/api/ingest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-ingest-secret': INGEST_SECRET,
+      },
+      body: JSON.stringify({ events }),
+    });
+    if (!res.ok) console.error('[LOGGER] Forward failed:', res.status);
+  } catch (e) {
+    console.error('[LOGGER] Forward error:', e.message);
+  }
 }
 
 export default async function handler(req, res) {
@@ -188,61 +193,63 @@ export default async function handler(req, res) {
 
   const events = body.events || [];
 
-  // Attach groupName to each event then forward to line-logger
+  // Attach groupName to each event
   const enrichedEvents = await Promise.all(events.map(async event => {
     if (event.type !== 'message') return event;
     const groupName = await getGroupName(event.source).catch(() => 'unknown');
     return { ...event, groupName };
   }));
-  forwardToLogger(enrichedEvents);
 
-  // Leave detection (text messages only)
-  await Promise.all(events.map(async event => {
-    if (event.type !== 'message' || event.message.type !== 'text') return;
-    const userId = event.source.userId;
-    const source = event.source;
-    const text = event.message.text.trim();
+  // Run forwardToLogger concurrently with leave detection, await both before responding
+  await Promise.all([
+    forwardToLogger(enrichedEvents),
+    Promise.all(events.map(async event => {
+      if (event.type !== 'message' || event.message.type !== 'text') return;
+      const userId = event.source.userId;
+      const source = event.source;
+      const text = event.message.text.trim();
 
-    let knownMemberId = await getMemberIdFromSheets(userId);
-    if (!knownMemberId) {
-      const displayName = await getLineDisplayName(userId, source);
-      if (displayName) {
-        const member = findMemberByName(displayName);
-        if (member) {
-          knownMemberId = member.id;
-          await saveUserToSheets(userId, displayName, member.id);
-        }
-      }
-    }
-
-    // Self-register command
-    const registerMatch = text.match(/^ฉัน\s+(.+)$/);
-    if (registerMatch) {
-      const inputName = registerMatch[1].trim();
-      const member = findMemberByName(inputName);
-      if (member) await saveUserToSheets(userId, inputName, member.id);
-      return;
-    }
-
-    const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
-    if (hasTrigger && knownMemberId) {
-      const result = quickDetect(text, knownMemberId);
-      if (result && result.action !== 'none') {
-        const finalId = result.memberId || knownMemberId;
-        if (finalId) {
-          let status = result.status;
-          if (status === 'leave' || status === 'absent') {
-            const leaveDate = extractLeaveDateFromText(text);
-            if (leaveDate) {
-              const today = new Date().toISOString().slice(0, 10);
-              if (leaveDate > today) status = `leave_advance:${leaveDate}`;
-            }
+      let knownMemberId = await getMemberIdFromSheets(userId);
+      if (!knownMemberId) {
+        const displayName = await getLineDisplayName(userId, source);
+        if (displayName) {
+          const member = findMemberByName(displayName);
+          if (member) {
+            knownMemberId = member.id;
+            await saveUserToSheets(userId, displayName, member.id);
           }
-          await updateSheet(finalId, status);
         }
       }
-    }
-  }));
+
+      // Self-register command
+      const registerMatch = text.match(/^ฉัน\s+(.+)$/);
+      if (registerMatch) {
+        const inputName = registerMatch[1].trim();
+        const member = findMemberByName(inputName);
+        if (member) await saveUserToSheets(userId, inputName, member.id);
+        return;
+      }
+
+      const hasTrigger = LEAVE_RE.test(text) || TRIGGER_WORDS.some(w => text.includes(w));
+      if (hasTrigger && knownMemberId) {
+        const result = quickDetect(text, knownMemberId);
+        if (result && result.action !== 'none') {
+          const finalId = result.memberId || knownMemberId;
+          if (finalId) {
+            let status = result.status;
+            if (status === 'leave' || status === 'absent') {
+              const leaveDate = extractLeaveDateFromText(text);
+              if (leaveDate) {
+                const today = new Date().toISOString().slice(0, 10);
+                if (leaveDate > today) status = `leave_advance:${leaveDate}`;
+              }
+            }
+            await updateSheet(finalId, status);
+          }
+        }
+      }
+    }))
+  ]);
 
   return res.status(200).json({ success: true });
 }
